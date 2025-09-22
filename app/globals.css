@@ -24,3 +24,103 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes demote-flash {
+  0% { box-shadow: 0 0 0 0 rgba(250,204,21,0.0); transform: scale(1); }
+  25% { box-shadow: 0 0 12px 4px rgba(250,204,21,0.9); transform: scale(1.08); }
+  60% { box-shadow: 0 0 6px 2px rgba(250,204,21,0.5); transform: scale(1.02); }
+  100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); transform: scale(1); }
+}
+
+@keyframes promote-glow {
+  0% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  30% { box-shadow: 0 0 14px 6px rgba(16,185,129,0.85); }
+  70% { box-shadow: 0 0 10px 4px rgba(16,185,129,0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+
+.animate-demote-flash { animation: demote-flash 900ms ease-in-out; }
+.animate-promote-glow { animation: promote-glow 1200ms ease-in-out; }
+
+/* Image tinting for piece PNG/SVG (approximate team colors via filter chain) */
+/* Team tints
+  A: Blue / Cyan accent
+  B: Green accent (adjusted to differentiate clearly from red)
+  C: Black (near-monochrome)
+  D: Red accent
+  Filters derived via experimentation to recolor grayscale piece assets.
+*/
+.team-a-tint { filter: brightness(0) saturate(100%) invert(34%) sepia(94%) saturate(747%) hue-rotate(190deg) brightness(96%) contrast(97%); }
+.team-b-tint { filter: brightness(0) saturate(100%) invert(32%) sepia(93%) saturate(534%) hue-rotate(86deg) brightness(92%) contrast(94%); }
+.team-c-tint { filter: brightness(0) saturate(100%) invert(8%) sepia(6%) saturate(748%) hue-rotate(123deg) brightness(92%) contrast(101%); }
+.team-d-tint { filter: brightness(0) saturate(100%) invert(14%) sepia(93%) saturate(7475%) hue-rotate(2deg) brightness(94%) contrast(105%); }
+
+/* Board square styling */
+.sq-light { background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(240,252,247,0.85) 40%, rgba(214,247,236,0.8) 100%); }
+.sq-dark { background: radial-gradient(circle at 65% 65%, rgba(6,78,59,0.95), rgba(4,120,87,0.9) 45%, rgba(2,44,34,0.85) 100%); }
+.sq-light:hover { background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%); }
+.sq-dark:hover { background: radial-gradient(circle at 65% 65%, rgba(6,95,70,0.95), rgba(5,150,105,0.92) 50%, rgba(2,60,45,0.9) 100%); }
+.sq-selected { outline: 3px solid rgba(250,204,21,0.85); outline-offset: -2px; }
+.sq-droppable { box-shadow: 0 0 0 3px rgba(129,140,248,0.65) inset, 0 0 10px 2px rgba(99,102,241,0.55); }
+
+/* Board container frame */
+.board-shell { position: relative; padding: 1.1rem; border-radius: 1.25rem; background: linear-gradient(145deg, rgba(16,24,32,0.85), rgba(8,55,47,0.85)); box-shadow: 0 8px 32px -8px rgba(0,0,0,0.6), 0 0 0 1px rgba(56,189,248,0.08); backdrop-filter: blur(6px) saturate(140%); }
+.board-shell:before { content:""; position:absolute; inset:0; border-radius:inherit; padding:2px; background: linear-gradient(160deg, rgba(125,211,252,0.5), rgba(34,197,94,0.5), rgba(147,51,234,0.4)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events:none; }
+.board-frame { border: 4px solid rgba(4,120,87,0.9); border-radius: 0.9rem; box-shadow: 0 0 0 1px rgba(16,185,129,0.4), inset 0 0 12px -2px rgba(16,185,129,0.3), 0 10px 24px -6px rgba(0,0,0,0.7); background: linear-gradient(135deg, rgba(4,120,87,0.35), rgba(6,78,59,0.35)); }
+
+/* Game background */
+.game-bg { background:
+  radial-gradient(circle at 20% 25%, rgba(16,185,129,0.18), transparent 60%),
+  radial-gradient(circle at 80% 70%, rgba(59,130,246,0.15), transparent 65%),
+  linear-gradient(120deg, #0f172a 0%, #031a17 55%, #0a1f33 100%);
+  position:relative;
+}
+.game-bg:after { content:""; position:absolute; inset:0; pointer-events:none; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 6px); mix-blend-mode: overlay; opacity:0.35; }
+
+/* Last move highlight outline variant */
+.last-move-ring { box-shadow: 0 0 0 3px rgba(34,211,238,0.7), 0 0 10px 3px rgba(34,211,238,0.4); border-radius: 9999px; }
+
+/* Responsive board sizing */
+:root { --sq: 42px; --board-vpad: 140px; /* adjusted vertical padding estimate */ --board-safe: 8px; }
+@media (min-width: 420px) { :root { --sq: 50px; } }
+@media (min-width: 520px) { :root { --sq: 54px; } }
+@media (min-width: 640px) { :root { --sq: 60px; } }
+@media (min-width: 768px) { :root { --sq: 64px; } }
+@media (min-width: 1024px) { :root { --sq: 68px; } }
+@media (min-width: 1280px) { :root { --sq: 72px; } }
+@media (min-width: 1536px) { :root { --sq: 76px; } }
+
+/* Dynamic square size limited by available viewport height to avoid bottom clipping */
+:root { --sq-dynamic: min(var(--sq), calc((100vh - (var(--board-vpad) + 20px) - var(--board-safe)) / 8)); }
+.board-responsive { width: calc(var(--sq-dynamic) * 8 + 2px); max-width: 100%; overflow-x: auto; }
+.board-responsive .board-frame { width: calc(var(--sq-dynamic) * 8); max-width: 100%; }
+.board-responsive .board-frame > div { width: var(--sq-dynamic); height: var(--sq-dynamic); }
+
+@media (max-width: 380px) { :root { --sq: 36px; } }
+@media (max-width: 340px) { :root { --sq: 32px; } }
+
+@media (max-height: 760px) {
+  :root { --sq: clamp(38px, 7vh, 56px); }
+}
+
+@media (max-height: 700px) {
+  :root { --sq: clamp(36px, 6.8vh, 52px); --board-vpad: 120px; }
+  .board-shell { padding: 0.9rem; }
+}
+@media (max-height: 640px) {
+  :root { --sq: clamp(34px, 6.5vh, 48px); --board-vpad: 110px; }
+  .board-shell { padding: 0.8rem; }
+}
+@media (max-height: 600px) {
+  :root { --sq: clamp(32px, 6.2vh, 44px); --board-vpad: 100px; }
+  .board-shell { padding: 0.7rem; }
+}
+@media (max-height: 560px) {
+  :root { --sq: clamp(30px, 6vh, 42px); --board-vpad: 90px; }
+  .board-shell { padding: 0.6rem; }
+}
+@media (max-height: 520px) {
+  :root { --sq: clamp(28px, 5.8vh, 40px); --board-vpad: 80px; }
+  .board-shell { padding: 0.5rem; }
+}
+
