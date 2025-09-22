@@ -3,6 +3,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import Board from './components/Board';
 import QuestionModal from './components/QuestionModal';
 import { Piece, Team, Game as FullGame } from '@/models/types';
+import { Avatar } from '@/app/components/Avatar';
+import { fetchPublicUsers } from '@/lib/userPublicCache';
 import { createLocalGame } from '@/lib/board';
 import { resolveCombatAndMove, CombatEvent, ResolveResult } from '@/lib/combat';
 
@@ -42,6 +44,7 @@ export default function GamePage() {
   const toastCounter = React.useRef(0);
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [playerInfo, setPlayerInfo] = useState<Record<string, { email: string; elo: number; name?: string }> | null>(null);
 
   // Sync turnTeam with game.turnOfUserId whenever game changes
   useEffect(() => {
@@ -127,6 +130,10 @@ export default function GamePage() {
             const payload: GameMovePayload = (envelope as AblyEnvelope).data && typeof (envelope as AblyEnvelope).data === 'object'
               ? (envelope as AblyEnvelope).data as GameMovePayload
               : (envelope as GameMovePayload);
+            if ((msg as { name: string }).name === 'game.finished') {
+              // Force reload final state
+              fetch(`/api/games/${gid}`).then(r=>r.json()).then(d=> { if (d.game) setGame({ _id: d.game._id, boardCategories: d.game.boardCategories, pieces: d.game.pieces, blackHoles: d.game.blackHoles, players: d.game.players, turnOfUserId: d.game.turnOfUserId }); });
+            }
             if (payload?.pieces) {
               setGame(g => {
                 if (!g) return g;
@@ -157,6 +164,21 @@ export default function GamePage() {
       try { client?.close?.(); } catch {}
     };
   }, [game?._id]);
+
+  // Fetch public player info when game players known (with caching)
+  useEffect(() => {
+    if (!game?.players || !game.players.length) return;
+    const ids = game.players.map(p=>p.userId);
+    let mounted = true;
+    (async () => {
+      const data = await fetchPublicUsers(ids);
+      if (!mounted) return;
+      const map: Record<string, { email: string; elo: number; name?: string }> = {};
+      Object.entries(data).forEach(([id, v]) => { map[id] = { email: v.email, elo: v.elo, name: v.name }; });
+      setPlayerInfo(map);
+    })();
+    return () => { mounted = false; };
+  }, [game?.players]);
 
   async function createGame() {
     setLoading(true); setError(null);
@@ -342,6 +364,35 @@ export default function GamePage() {
         )}
         {game && (
           <div className="flex flex-col items-center gap-3">
+            {playerInfo ? (
+              <div className="flex flex-wrap justify-center gap-2 text-[11px] text-slate-300">
+                {game.players?.map(p => {
+                  const info = playerInfo[p.userId];
+                  const label = info?.name || info?.email?.split('@')[0] || p.userId;
+                  return (
+                    <div key={p.userId} className={'flex items-center gap-2 px-2 py-1 rounded border bg-slate-700/40 ' + (p.userId===game.turnOfUserId ? 'border-indigo-400' : 'border-slate-600')}>
+                      <Avatar name={info?.name} email={info?.email} size={28} />
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-medium text-[11px]">{label} <span className="text-xs text-slate-400">({info?.elo ?? '?'})</span></span>
+                        <span className="text-[10px] text-slate-500">Team {p.team}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-wrap justify-center gap-2">
+                {Array.from({ length: game.players?.length || 0 }).map((_,i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1 rounded border border-slate-600 bg-slate-700/30 animate-pulse">
+                    <div className="w-7 h-7 rounded-full bg-slate-600" />
+                    <div className="flex flex-col gap-1">
+                      <div className="h-2 w-20 bg-slate-600 rounded" />
+                      <div className="h-2 w-10 bg-slate-700 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {!gameChannelReady && !localMode && (
               <div className="text-[11px] text-slate-400 animate-pulse">Connecting realtime...</div>
             )}

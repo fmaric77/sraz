@@ -1,57 +1,114 @@
+"use client";
 import Link from 'next/link';
+import Board from './game/components/Board';
+import { createLocalGame } from '@/lib/board';
+import { useAuthModal } from './components/AuthModalProvider';
+import { useSession } from 'next-auth/react';
+import { useCurrentUser } from './components/CurrentUserProvider';
+import { Avatar } from './components/Avatar';
+import React from 'react';
+import { signOut } from 'next-auth/react';
 
 export default function Home() {
+  // Generate a static 4-player demo board
+  const demo = createLocalGame(4);
+  const { open } = useAuthModal();
+  const { data: session } = useSession();
+  const { name, email, userId } = useCurrentUser();
+  const loggedIn = !!session?.user;
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-800 text-slate-100">
-      <header className="px-6 py-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Quiz Tactics</h1>
-        <nav className="hidden sm:flex gap-6 text-sm text-slate-300">
-          <Link href="/game" className="hover:text-white transition">Play</Link>
-          <a href="https://github.com" target="_blank" rel="noopener" className="hover:text-white transition">GitHub</a>
-          <Link href="/api/games" className="hover:text-white transition">API</Link>
-        </nav>
-      </header>
-      <main className="flex-1 flex flex-col items-center text-center px-6 pt-12 pb-20">
-        <div className="max-w-3xl space-y-6">
-          <h2 className="text-4xl sm:text-5xl font-extrabold bg-gradient-to-r from-amber-300 via-pink-300 to-violet-300 text-transparent bg-clip-text drop-shadow">
-            Knowledge + Strategy on an 8×8 Battlefield
-          </h2>
-          <p className="text-sm sm:text-base leading-relaxed text-slate-300">
-            A turn‑based multiplayer board game where every move is powered by trivia mastery. Move your pieces, answer category questions, promote units, push enemies back, and out-think your opponent.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
-            <Link href="/game" className="inline-flex justify-center items-center rounded-md bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 px-6 py-3 font-medium text-white shadow-lg shadow-indigo-900/40 transition">
-              Start a Demo Game
-            </Link>
-            <Link href="/lobby/new" className="inline-flex justify-center items-center rounded-md bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-6 py-3 font-medium text-white shadow-lg shadow-emerald-900/40 transition">
-              Create Lobby
-            </Link>
-            <a href="/README" className="inline-flex justify-center items-center rounded-md border border-slate-600 hover:border-slate-400 px-6 py-3 font-medium text-slate-200 hover:text-white transition">
-              Read the Spec
-            </a>
-          </div>
+    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-800 text-slate-100">
+      <header className="w-full px-6 py-4 grid grid-cols-3 items-center">
+  <h1 className="text-xl font-bold">Sraz</h1>
+        <div className="flex justify-center">
+          <button
+            onClick={async () => {
+              interface CreateLobbyPayload { maxPlayers: number; hostUserId?: string }
+              try {
+                const payload: CreateLobbyPayload = { maxPlayers: 4 };
+                if (loggedIn && userId) payload.hostUserId = userId; // ensure host maps to authenticated user
+                const res = await fetch('/api/lobbies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (res.ok && data.lobby?.lobbyCode) {
+                  try {
+                    const hostId = data.lobby?.players?.[0]?.userId;
+                    if (hostId) localStorage.setItem('userId', hostId);
+                  } catch {}
+                  window.location.href = `/lobby/${data.lobby.lobbyCode}`;
+                }
+              } catch (e) {
+                console.error('Lobby creation failed', e);
+                alert('Failed to create lobby');
+              }
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-6 py-3 rounded text-white font-medium shadow-md transition"
+          >
+            {loggedIn ? 'Create Lobby' : 'Play (Create Lobby)'}
+          </button>
         </div>
-        <section className="grid sm:grid-cols-3 gap-6 mt-16 max-w-5xl w-full">
-          {FEATURES.map(f => (
-            <div key={f.title} className="bg-white/5 border border-white/10 rounded-lg p-5 text-left hover:bg-white/10 transition backdrop-blur-sm">
-              <h3 className="font-semibold mb-2 text-amber-300 text-sm tracking-wide uppercase">{f.title}</h3>
-              <p className="text-xs leading-relaxed text-slate-300">{f.desc}</p>
-            </div>
-          ))}
-        </section>
+        <div className="flex gap-3 justify-end items-center relative">
+          {loggedIn ? (
+            <AvatarDropdown name={name} email={email} />
+          ) : (
+            <>
+              <button onClick={() => open('login')} className="text-sm hover:text-white underline decoration-transparent hover:decoration-white transition">Sign In</button>
+              <button onClick={() => open('register')} className="text-sm hover:text-white underline decoration-transparent hover:decoration-white transition">Register</button>
+            </>
+          )}
+        </div>
+      </header>
+      <main className="flex-1 flex flex-col items-center justify-center w-full px-4">
+        <div className="w-full flex flex-col items-center">
+          <Board
+            categories={demo.boardCategories}
+            pieces={demo.pieces}
+            blackHoles={demo.blackHoles}
+            interactive={false}
+          />
+        </div>
       </main>
-      <footer className="py-6 text-center text-xs text-slate-400 border-t border-white/10">
-        <p>© {new Date().getFullYear()} Quiz Tactics — MVP Prototype</p>
-      </footer>
     </div>
   );
 }
 
-const FEATURES = [
-  { title: 'Strategic Promotion', desc: 'Pieces level up (Pawn → Knight → Cavalry) only when they eliminate an enemy piece—timed captures matter.' },
-  { title: 'Category Terrain', desc: 'Each square has a category. Your move only succeeds if you conquer its question in time.' },
-  { title: 'Push & Demote Combat', desc: 'Higher level defenders are pushed back and demoted—set up chain reactions and lethal edge pushes.' },
-  { title: 'Real-time Multiplayer', desc: 'Socket-powered turns and question prompts (coming soon in this scaffold).'},
-  { title: 'Internationalization', desc: 'Google Translate integration planned for rapid multi-language play.' },
-  { title: 'Persistent Progress', desc: 'Planned profiles, global leaderboard, and match history keep players engaged.' },
-];
+function AvatarDropdown({ name, email }: { name: string | null; email: string | null }) {
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest?.('[data-avatar-menu-root]')) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
+  return (
+    <div data-avatar-menu-root className="relative">
+      <button onClick={() => setOpen(o=>!o)} className="flex items-center gap-2 group focus:outline-none">
+        <Avatar name={name} email={email} size={36} />
+        <span className="hidden sm:inline text-xs text-slate-300 group-hover:text-white transition font-medium max-w-[140px] truncate">{name || (email?.split('@')[0])}</span>
+        <svg className={`w-3 h-3 text-slate-400 transition ${open ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-48 rounded-md border border-slate-700 bg-slate-900/95 backdrop-blur shadow-lg py-2 text-xs z-50 animate-fade-in">
+          <div className="px-3 pb-2 text-[11px] text-slate-400 border-b border-slate-700 mb-2 truncate">{email}</div>
+          <LinkItem href="/settings" label="Settings" />
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="w-full text-left px-3 py-2 hover:bg-slate-700/60 text-slate-200 flex items-center gap-2"
+          >
+            <span className="inline-block w-2 h-2 rounded-full bg-red-500" /> Logout
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LinkItem({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="block px-3 py-2 hover:bg-slate-700/60 text-slate-200">
+      {label}
+    </Link>
+  );
+}
+

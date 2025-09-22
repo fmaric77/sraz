@@ -26,7 +26,7 @@ const Square: React.FC<Props> = ({ x, y, category, children, onClick, selected, 
         const pieceId = e.dataTransfer.getData('application/x-piece-id');
         if (pieceId) onPieceDrop?.(x, y, pieceId);
       }}
-  className={`flex flex-col justify-center items-center text-[10px] sm:text-[11px] md:text-[12px] cursor-pointer relative select-none ${baseColor} ${selectedRing} ${dropOutline} ${holeClass} transition`}
+  className={`aspect-square flex flex-col justify-center items-center text-[10px] sm:text-[11px] md:text-[12px] cursor-pointer relative select-none ${baseColor} ${selectedRing} ${dropOutline} ${holeClass} transition`}
       title={category}
     >
       <span className={`absolute top-0 left-0 text-[8px] p-0.5 ${isDark ? 'text-emerald-100/70' : 'text-emerald-900/60'}`}>{category.slice(0,3)}</span>

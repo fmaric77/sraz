@@ -12,7 +12,7 @@ export function getAblyRest(): Ably.Rest | null {
 }
 
 export type LobbyEventType = 'player.joined' | 'player.left' | 'lobby.started';
-export type GameEventType = 'game.move';
+export type GameEventType = 'game.move' | 'game.finished';
 
 export interface LobbyEventPayload { [key: string]: unknown }
 export async function publishLobbyEvent(lobbyCode: string, type: LobbyEventType, data: LobbyEventPayload) {

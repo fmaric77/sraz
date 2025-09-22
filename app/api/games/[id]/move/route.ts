@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-import { Game, Piece } from '@/models/types';
+import { Game, Piece, User } from '@/models/types';
 import { publishGameEvent } from '@/lib/realtime';
 import { resolveCombatAndMove } from '@/lib/combat';
+import { updateEloMulti } from '@/lib/elo';
+import { updateUserEloAndRecord } from '@/lib/users';
+import { GameResult } from '@/models/types';
 
 // POST /api/games/:id/move { pieceId, toX, toY, userId }
 interface MoveBody { pieceId?: string; toX?: number; toY?: number; userId?: string }
@@ -51,7 +54,45 @@ export async function POST(req: NextRequest) {
   const idx = teamOrder.indexOf(currentTeam);
   const nextTeam = teamOrder[(idx + 1) % teamOrder.length];
   const nextUser = game.players.find(p => p.team === nextTeam)?.userId || userId;
-  await gamesCol.updateOne({ _id: id }, { $set: { pieces: updatedPieces, turnOfUserId: nextUser } });
-  await publishGameEvent(id, 'game.move', { pieceId, toX, toY, events, nextTurnUserId: nextUser, pieces: updatedPieces });
-  return NextResponse.json({ ok: true });
+  // Determine if game ended: only one team remains alive
+  const aliveTeamsFinal = Array.from(new Set(updatedPieces.filter(p=>p.alive).map(p=>p.team)));
+  const gameEnded = aliveTeamsFinal.length === 1;
+  let winnerTeam: Game['players'][number]['team'] | null = null;
+  if (gameEnded) winnerTeam = aliveTeamsFinal[0] as Game['players'][number]['team'];
+
+  if (!gameEnded) {
+    await gamesCol.updateOne({ _id: id }, { $set: { pieces: updatedPieces, turnOfUserId: nextUser } });
+    await publishGameEvent(id, 'game.move', { pieceId, toX, toY, events, nextTurnUserId: nextUser, pieces: updatedPieces });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Game finished: gather player elos for update.
+  // Fetch users collection for elo (players may not all be registered). Only rated if all players are registered users.
+  const allPlayerIds = game.players.map(p=>p.userId);
+  const usersCol = await getCollection<User>('users');
+  const userDocs = await usersCol.find({ _id: { $in: allPlayerIds } }).toArray();
+  const rated = userDocs.length === allPlayerIds.length; // only if all participants registered
+  let eloResults: { userId: string; preElo: number; postElo: number; delta: number; result: 'win' | 'loss' | 'draw' | 'other'; team: string }[] = [];
+  if (rated) {
+    // Build score allocation: winner gets 1, others 0 (basic FFA). Future ties could distribute.
+  const playerStates = userDocs.map(d => ({ userId: d._id!, preElo: d.elo, score: game.players.find(p=>p.userId===d._id)?.team === winnerTeam ? 1 : 0 }));
+    const updated = updateEloMulti(playerStates);
+  eloResults = updated.map(r => ({ userId: r.userId, preElo: r.preElo, postElo: r.postElo, delta: r.delta, result: r.score === 1 ? 'win' : 'loss', team: game.players.find(p=>p.userId===r.userId)!.team }));
+    // Persist user elo and W/L record
+    for (const r of eloResults) {
+      await updateUserEloAndRecord(r.userId, r.postElo, { win: r.result==='win', loss: r.result==='loss' });
+    }
+  }
+  // Persist game result summary
+  const resultsCol = await getCollection<GameResult>('gameResults');
+  await resultsCol.insertOne({
+    gameId: id,
+    finishedAt: new Date(),
+    players: (rated ? eloResults : game.players.map(p=> ({ userId: p.userId, team: p.team, preElo: 0, postElo: 0, result: p.team === winnerTeam ? 'win' : 'other' }))) as unknown as GameResult['players'],
+    winnerUserId: game.players.find(p=> p.team === winnerTeam!)?.userId,
+    rated
+  });
+  await gamesCol.updateOne({ _id: id }, { $set: { pieces: updatedPieces, status: 'finished' } });
+  await publishGameEvent(id, 'game.finished', { winnerTeam, pieces: updatedPieces, rated, eloResults });
+  return NextResponse.json({ ok: true, finished: true, winnerTeam, rated });
 }

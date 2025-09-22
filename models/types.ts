@@ -83,3 +83,32 @@ export type Category = typeof CATEGORIES[number];
 export function assertPos(p: Pos) {
   if (p.x < 0 || p.x > 7 || p.y < 0 || p.y > 7) throw new Error('Position out of bounds');
 }
+
+// --- Auth & User Profile ---
+export interface User {
+  _id?: string; // stored as string ObjectId
+  email: string;
+  passwordHash: string; // bcrypt hash
+  createdAt: Date;
+  elo: number; // rating (default 1200)
+  wins: number;
+  losses: number;
+  draws: number; // reserved
+  name?: string; // display name
+}
+
+// Stored game result summary for completed games (primarily 2-player rated matches)
+export interface GameResult {
+  _id?: string;
+  gameId: string;
+  finishedAt: Date;
+  players: {
+    userId: string;
+    team: Team;
+    preElo: number;
+    postElo: number;
+    result: 'win' | 'loss' | 'draw' | 'other';
+  }[];
+  winnerUserId?: string; // omitted for draws / multi-team
+  rated: boolean;
+}

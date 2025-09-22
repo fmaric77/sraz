@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getLobby, joinLobby, startLobby, attachGameToLobby } from '@/lib/lobby';
+import { auth } from '@/auth';
 import { publishLobbyEvent } from '@/lib/realtime';
 import { createNewGame } from '@/lib/board';
 import { getCollection } from '@/lib/db';
 import { Game } from '@/models/types';
 import { randomUUID } from 'crypto';
+
+interface ExtendedSession {
+  user?: { name?: string | null; email?: string | null };
+  userId?: string; // enriched in auth callback
+  elo?: number;
+}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -27,7 +34,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const action = body.action;
   if (action === 'join') {
-    const userId = body.userId || 'anon-' + Math.random().toString(36).slice(2,8);
+    let userId: string | undefined = body.userId;
+    // If authenticated, always use real user id (avoid stale anon from localStorage)
+    try {
+      const session = (await auth()) as ExtendedSession | null;
+      if (session?.userId) userId = session.userId;
+    } catch {}
+    if (!userId) userId = 'anon-' + Math.random().toString(36).slice(2,8);
     const result = await joinLobby(code, userId);
     if ('error' in result) return NextResponse.json(result, { status: 400 });
     await publishLobbyEvent(code, 'player.joined', { userId });
