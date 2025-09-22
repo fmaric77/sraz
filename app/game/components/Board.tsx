@@ -34,11 +34,15 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
   return (
   <div className="board-shell board-responsive mx-auto overflow-hidden overflow-x-auto max-w-full">
       <div className="board-frame inline-grid grid-cols-8 rounded overflow-hidden">
-      {categories.map((row, y) => row.map((cat, x) => {
+  {categories.map((row, y) => row.map((cat, x) => {
   const piece = pieces.find(p => p.alive && p.x === x && p.y === y);
         const isSelected = selected && selected.x === x && selected.y === y;
   const droppable = !!draggingPiece && isNeighbor(draggingPiece.x, draggingPiece.y, x, y) && (!piece || piece.team !== draggingPiece.team) && !bhSet.has(`${x},${y}`);
         const isBlackHole = bhSet.has(`${x},${y}`);
+        // Determine if tap-to-move should trigger move
+        const selPiece = selected ? pieces.find(p => p.alive && p.x === selected.x && p.y === selected.y) : null;
+        const canTapMove = selPiece && interactive && (!activeTeam || selPiece.team === activeTeam) && (!controllableTeam || selPiece.team === controllableTeam)
+          && isNeighbor(selPiece.x, selPiece.y, x, y) && (!piece || piece.team !== selPiece.team) && !bhSet.has(`${x},${y}`);
         return (
           <Square
             key={`${x}-${y}`}
@@ -46,7 +50,14 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
             y={y}
             category={cat}
             blackHole={isBlackHole}
-            onClick={() => { if (interactive) onSelect?.(x,y); }}
+            onClick={() => {
+              if (!interactive) return;
+              if (canTapMove) {
+                onRequestMove?.({ pieceId: selPiece!.id, toX: x, toY: y, category: cat });
+                return;
+              }
+              onSelect?.(x, y);
+            }}
             selected={!!isSelected}
             droppable={droppable}
             onPieceDrop={(dx: number, dy: number, pid: string) => {
