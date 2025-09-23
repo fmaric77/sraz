@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { Game, Piece, User } from '@/models/types';
 import { publishGameEvent } from '@/lib/realtime';
-import { resolveCombatAndMove } from '@/lib/combat';
+import { resolveCombatAndMove, CombatEvent } from '@/lib/combat';
+import { BOARD_SIZE } from '@/lib/board';
 import { updateEloMulti } from '@/lib/elo';
 import { updateUserEloAndRecord } from '@/lib/users';
 import { GameResult } from '@/models/types';
+import { finalizeGameAndBroadcast } from '@/lib/gameFinish';
 
 // POST /api/games/:id/move { pieceId, toX, toY, userId }
 interface MoveBody { pieceId?: string; toX?: number; toY?: number; userId?: string }
@@ -28,6 +30,16 @@ export async function POST(req: NextRequest) {
   const gamesCol = await getCollection<Game>('games');
   const game = await gamesCol.findOne({ _id: id });
   if (!game) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
+  // Guard: cannot move if a pendingQuestion exists (must answer via attempt flow)
+  if (game.pendingQuestion) {
+    // TTL auto-clear if expired
+    const createdAt = game.pendingQuestion.requestedAt ? new Date(game.pendingQuestion.requestedAt).getTime() : 0;
+    if (createdAt && Date.now() - createdAt > 45_000) {
+      await gamesCol.updateOne({ _id: id }, { $set: { pendingQuestion: null } });
+    } else {
+      return NextResponse.json({ error: 'QUESTION_PENDING' }, { status: 409 });
+    }
+  }
   // Membership check
   if (!game.players.some(p => p.userId === userId)) {
     return NextResponse.json({ error: 'NOT_IN_GAME' }, { status: 403 });
@@ -41,7 +53,10 @@ export async function POST(req: NextRequest) {
   if (!piece) return NextResponse.json({ error: 'PIECE_NOT_FOUND' }, { status: 404 });
   // Basic adjacency check (reuse simple logic inline)
   const dx = Math.abs(piece.x - toX); const dy = Math.abs(piece.y - toY);
-  if ((dx === 0 && dy === 0) || dx > 1 || dy > 1 || toX < 0 || toX > 7 || toY < 0 || toY > 7) {
+  if (piece.isFlag) {
+    return NextResponse.json({ error: 'FLAG_IMMOBILE' }, { status: 400 });
+  }
+  if ((dx === 0 && dy === 0) || dx > 1 || dy > 1 || toX < 0 || toX >= BOARD_SIZE || toY < 0 || toY >= BOARD_SIZE) {
     return NextResponse.json({ error: 'ILLEGAL_MOVE' }, { status: 400 });
   }
   // Resolve combat rules using shared logic
@@ -56,9 +71,16 @@ export async function POST(req: NextRequest) {
   const nextUser = game.players.find(p => p.team === nextTeam)?.userId || userId;
   // Determine if game ended: only one team remains alive
   const aliveTeamsFinal = Array.from(new Set(updatedPieces.filter(p=>p.alive).map(p=>p.team)));
-  const gameEnded = aliveTeamsFinal.length === 1;
+  const flagCapture = events.find(e => e.type === 'flag-capture') as (CombatEvent & { type: 'flag-capture'; flagTeam: string; attackerTeam: string }) | undefined;
+  const gameEnded = aliveTeamsFinal.length === 1 || !!flagCapture;
   let winnerTeam: Game['players'][number]['team'] | null = null;
-  if (gameEnded) winnerTeam = aliveTeamsFinal[0] as Game['players'][number]['team'];
+  if (gameEnded) {
+    if (flagCapture) {
+      winnerTeam = flagCapture.attackerTeam as Game['players'][number]['team'];
+    } else {
+      winnerTeam = aliveTeamsFinal[0] as Game['players'][number]['team'];
+    }
+  }
 
   if (!gameEnded) {
     await gamesCol.updateOne({ _id: id }, { $set: { pieces: updatedPieces, turnOfUserId: nextUser } });
@@ -66,33 +88,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Game finished: gather player elos for update.
-  // Fetch users collection for elo (players may not all be registered). Only rated if all players are registered users.
-  const allPlayerIds = game.players.map(p=>p.userId);
-  const usersCol = await getCollection<User>('users');
-  const userDocs = await usersCol.find({ _id: { $in: allPlayerIds } }).toArray();
-  const rated = userDocs.length === allPlayerIds.length; // only if all participants registered
-  let eloResults: { userId: string; preElo: number; postElo: number; delta: number; result: 'win' | 'loss' | 'draw' | 'other'; team: string }[] = [];
-  if (rated) {
-    // Build score allocation: winner gets 1, others 0 (basic FFA). Future ties could distribute.
-  const playerStates = userDocs.map(d => ({ userId: d._id!, preElo: d.elo, score: game.players.find(p=>p.userId===d._id)?.team === winnerTeam ? 1 : 0 }));
-    const updated = updateEloMulti(playerStates);
-  eloResults = updated.map(r => ({ userId: r.userId, preElo: r.preElo, postElo: r.postElo, delta: r.delta, result: r.score === 1 ? 'win' : 'loss', team: game.players.find(p=>p.userId===r.userId)!.team }));
-    // Persist user elo and W/L record
-    for (const r of eloResults) {
-      await updateUserEloAndRecord(r.userId, r.postElo, { win: r.result==='win', loss: r.result==='loss' });
-    }
-  }
-  // Persist game result summary
-  const resultsCol = await getCollection<GameResult>('gameResults');
-  await resultsCol.insertOne({
-    gameId: id,
-    finishedAt: new Date(),
-    players: (rated ? eloResults : game.players.map(p=> ({ userId: p.userId, team: p.team, preElo: 0, postElo: 0, result: p.team === winnerTeam ? 'win' : 'other' }))) as unknown as GameResult['players'],
-    winnerUserId: game.players.find(p=> p.team === winnerTeam!)?.userId,
-    rated
-  });
-  await gamesCol.updateOne({ _id: id }, { $set: { pieces: updatedPieces, status: 'finished' } });
-  await publishGameEvent(id, 'game.finished', { winnerTeam, pieces: updatedPieces, rated, eloResults });
-  return NextResponse.json({ ok: true, finished: true, winnerTeam, rated });
+  const { rated, eloResults } = await finalizeGameAndBroadcast({ game, gameId: id, updatedPieces, winnerTeam, flagCapture: !!flagCapture });
+  return NextResponse.json({ ok: true, finished: true, winnerTeam, rated, eloResults });
 }

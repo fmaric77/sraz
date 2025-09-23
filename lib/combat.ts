@@ -5,8 +5,9 @@ export interface PromotionEvent extends CombatEventBase { type: 'promotion'; fro
 export interface KillEvent extends CombatEventBase { type: 'kill'; reason: 'capture' | 'pushed-out'; }
 export interface DemotionEvent extends CombatEventBase { type: 'demotion'; fromLevel: number; toLevel: number; }
 export interface PushEvent extends CombatEventBase { type: 'push'; from: {x:number;y:number}; to: {x:number;y:number}; }
+export interface FlagCaptureEvent extends CombatEventBase { type: 'flag-capture'; flagTeam: string; attackerTeam: string; }
 
-export type CombatEvent = PromotionEvent | KillEvent | DemotionEvent | PushEvent;
+export type CombatEvent = PromotionEvent | KillEvent | DemotionEvent | PushEvent | FlagCaptureEvent;
 
 export interface ResolveResult {
   pieces: Piece[]; // updated pieces (cloned from input)
@@ -84,6 +85,13 @@ export function resolveCombatAndMove(args: {
   }
 
   if (defender) {
+    // Flag capture: instant kill + game-ending condition (represented via special kill reason 'capture')
+    if (defender.isFlag) {
+      defender.alive = false;
+      events.push({ type: 'flag-capture', pieceId: defender.id, flagTeam: defender.team, attackerTeam: attacker.team });
+      attacker.x = toX; attacker.y = toY;
+      return { pieces, events };
+    }
     if (defender.level === 1) {
       defender.alive = false;
       events.push({ type: 'kill', pieceId: defender.id, reason: 'capture' });

@@ -15,6 +15,7 @@ export interface Piece {
   x: number;
   y: number;
   alive: boolean;
+  isFlag?: boolean; // special immobile objective piece (captures end the game)
 }
 
 export interface GamePlayerRef {
@@ -26,6 +27,7 @@ export interface GameQuestionHistoryEntry {
   turn: number;
   questionId: string;
   correct: boolean;
+  category: string; // stored category (resolved if square was Random)
 }
 
 export interface Game {
@@ -38,6 +40,14 @@ export interface Game {
   createdAt: Date;
   questionHistory: GameQuestionHistoryEntry[];
   blackHoles?: { x: number; y: number }[]; // special lethal squares (pushed pieces die)
+  pendingQuestion?: {
+    questionId: string;
+    pieceId: string;
+    toX: number;
+    toY: number;
+    category: string;
+    requestedAt: Date;
+  } | null;
 }
 
 export interface LobbyPlayerRef {

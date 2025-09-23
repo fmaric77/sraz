@@ -1,5 +1,6 @@
 import React from 'react';
 import { Piece, Team } from '@/models/types';
+import { BOARD_SIZE } from '@/lib/board';
 import Square from './Square';
 import PieceView from './Piece';
 
@@ -33,8 +34,8 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
 
   return (
   <div className="board-shell board-responsive mx-auto overflow-hidden overflow-x-auto max-w-full">
-      <div className="board-frame inline-grid grid-cols-8 rounded overflow-hidden">
-  {categories.map((row, y) => row.map((cat, x) => {
+    <div className={`board-frame inline-grid rounded overflow-hidden`} style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0,1fr))` }}>
+  {categories.slice(0, BOARD_SIZE).map((row, y) => row.slice(0, BOARD_SIZE).map((cat, x) => {
   const piece = pieces.find(p => p.alive && p.x === x && p.y === y);
         const isSelected = selected && selected.x === x && selected.y === y;
   const droppable = !!draggingPiece && isNeighbor(draggingPiece.x, draggingPiece.y, x, y) && (!piece || piece.team !== draggingPiece.team) && !bhSet.has(`${x},${y}`);
@@ -77,9 +78,16 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
                 {piece.id === lastMovedPieceId && (
                   <div className="pointer-events-none absolute inset-0 animate-pulse last-move-ring" />
                 )}
-                {isBlackHole && (
+                {piece.isFlag && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-black/80 shadow-inner ring-2 ring-purple-600 animate-pulse" />
+                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-yellow-400/90 ring-2 ring-amber-600 shadow flag-icon animate-pulse" title="Flag" />
+                  </div>
+                )}
+                {isBlackHole && !piece && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/90 shadow-inner ring-2 ring-purple-600 animate-pulse relative">
+                      <div className="absolute inset-0 rounded-full bg-purple-700/30 blur-sm animate-pulse-slow" />
+                    </div>
                   </div>
                 )}
                 <PieceView piece={piece} demoted={demotedIds.has(piece.id)} promoted={promotedIds.has(piece.id)} draggableOverride={interactive} onDragStart={(p: Piece)=> {
@@ -92,7 +100,9 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
             )}
             {!piece && isBlackHole && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-black/80 shadow-inner ring-2 ring-purple-600 animate-pulse" />
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/90 shadow-inner ring-2 ring-purple-600 animate-pulse relative">
+                  <div className="absolute inset-0 rounded-full bg-purple-700/30 blur-sm animate-pulse-slow" />
+                </div>
               </div>
             )}
           </Square>

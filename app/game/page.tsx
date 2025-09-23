@@ -46,6 +46,19 @@ export default function GamePage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [playerInfo, setPlayerInfo] = useState<Record<string, { email: string; elo: number; name?: string }> | null>(null);
 
+  // Typed helper to safely coerce unknown realtime payloads for 'game.turn' events
+  interface GameTurnPayload { nextTurnUserId?: string; incorrect?: boolean }
+  function asTurnPayload(d: unknown): GameTurnPayload {
+    if (d && typeof d === 'object') {
+      const o = d as Record<string, unknown>;
+      return {
+        nextTurnUserId: typeof o.nextTurnUserId === 'string' ? o.nextTurnUserId : undefined,
+        incorrect: o.incorrect === true,
+      };
+    }
+    return {};
+  }
+
   // Sync turnTeam with game.turnOfUserId whenever game changes
   useEffect(() => {
     if (game?.turnOfUserId && game.players) {
@@ -87,6 +100,14 @@ export default function GamePage() {
           console.warn('Filtered out pieces from non-player teams', data.game.pieces.length - filteredPieces.length);
         }
         setGame({ _id: data.game._id, boardCategories: data.game.boardCategories, pieces: filteredPieces, blackHoles: data.game.blackHoles, players: data.game.players, turnOfUserId: data.game.turnOfUserId });
+        // Hydrate server question history (categories not stored; show as unknown until future enhancement)
+        if (data.game.questionHistory?.length) {
+          setQuestionHistory(
+            data.game.questionHistory.map(
+              (h: FullGame['questionHistory'][number]) => ({ qid: h.questionId, correct: h.correct, category: '—' })
+            )
+          );
+        }
         setPersisted(true);
         // Derive current team from turnOfUserId
   const turnPlayer = data.game?.players.find((p)=> p.userId === data.game!.turnOfUserId);
@@ -130,10 +151,6 @@ export default function GamePage() {
             const payload: GameMovePayload = (envelope as AblyEnvelope).data && typeof (envelope as AblyEnvelope).data === 'object'
               ? (envelope as AblyEnvelope).data as GameMovePayload
               : (envelope as GameMovePayload);
-            if ((msg as { name: string }).name === 'game.finished') {
-              // Force reload final state
-              fetch(`/api/games/${gid}`).then(r=>r.json()).then(d=> { if (d.game) setGame({ _id: d.game._id, boardCategories: d.game.boardCategories, pieces: d.game.pieces, blackHoles: d.game.blackHoles, players: d.game.players, turnOfUserId: d.game.turnOfUserId }); });
-            }
             if (payload?.pieces) {
               setGame(g => {
                 if (!g) return g;
@@ -149,8 +166,64 @@ export default function GamePage() {
                 if (nextPlayer) setTurnTeam(nextPlayer.team);
               }
             } else {
-              fetch(`/api/games/${gid}`).then(r=>r.json()).then(d=> { if (d.game) setGame({ _id: d.game._id, boardCategories: d.game.boardCategories, pieces: d.game.pieces, blackHoles: d.game.blackHoles, players: d.game.players, turnOfUserId: d.game.turnOfUserId }); });
+              fetch(`/api/games/${gid}`)
+                .then(r => r.json())
+                .then(data => {
+                  if (data.game) {
+                    setGame({
+                      _id: data.game._id,
+                      boardCategories: data.game.boardCategories,
+                      pieces: data.game.pieces,
+                      blackHoles: data.game.blackHoles,
+                      players: data.game.players,
+                      turnOfUserId: data.game.turnOfUserId,
+                    });
+                    if (data.game.questionHistory?.length) {
+                      setQuestionHistory(
+                        data.game.questionHistory.map(
+                          (h: FullGame['questionHistory'][number]) => ({ qid: h.questionId, correct: h.correct, category: '—' })
+                        )
+                      );
+                    }
+                  }
+                });
             }
+          } else if (msg.name === 'game.turn') {
+            const envelope = msg.data as AblyEnvelope;
+            const payload = asTurnPayload(envelope.data);
+            if (payload.nextTurnUserId) {
+              setGame(g => g ? { ...g, turnOfUserId: payload.nextTurnUserId } : g);
+              if (game?.players) {
+                const nextPlayer = game.players.find(p => p.userId === payload.nextTurnUserId);
+                if (nextPlayer) setTurnTeam(nextPlayer.team);
+              }
+            }
+            if (payload.incorrect) {
+              setToast({ id: ++toastCounter.current, type: 'error', message: 'Incorrect – Turn Lost.' });
+            }
+          } else if (msg.name === 'game.finished') {
+            // Force reload final state on finish
+            fetch(`/api/games/${gid}`)
+              .then(r => r.json())
+              .then(data => {
+                if (data.game) {
+                  setGame({
+                    _id: data.game._id,
+                    boardCategories: data.game.boardCategories,
+                    pieces: data.game.pieces,
+                    blackHoles: data.game.blackHoles,
+                    players: data.game.players,
+                    turnOfUserId: data.game.turnOfUserId,
+                  });
+                    if (data.game.questionHistory?.length) {
+                      setQuestionHistory(
+                        data.game.questionHistory.map(
+                          (h: FullGame['questionHistory'][number]) => ({ qid: h.questionId, correct: h.correct, category: '—' })
+                        )
+                      );
+                    }
+                }
+              });
           }
         });
         setGameChannelReady(true);
@@ -413,6 +486,11 @@ export default function GamePage() {
                 interactive={!membershipDenied}
                 onRequestMove={async ({ pieceId, toX, toY, category }) => {
                   if (membershipDenied) return; // spectators cannot move
+                  // prevent move attempts if game not yet persisted in DB
+                  if (!localMode && persisted !== true) {
+                    setToast({ id: ++toastCounter.current, type: 'error', message: 'Game not yet created in lobby - please wait.' });
+                    return;
+                  }
                   // Enforce ownership & active turn before fetching a question (remote)
                   if (game.turnOfUserId) {
                     const userId = localStorage.getItem('userId');
@@ -443,17 +521,43 @@ export default function GamePage() {
                   setPendingMove({ pieceId, toX, toY, category: effectiveCategory });
                   setQuestionLoading(true);
                   try {
-                    const res = await fetch(`/api/questions?category=${encodeURIComponent(effectiveCategory)}`);
-                    const data = await res.json();
-                    if (data.question) {
-                      setQuestion({ id: data.question._id, text: data.question.text, choices: data.question.choices });
-                      setQuestionOpen(true);
-                    } else {
-                      // fallback: if no question, auto-allow move
+                    const qRes = await fetch(`/api/questions?category=${encodeURIComponent(effectiveCategory)}`);
+                    const qData = await qRes.json();
+                    if (!qRes.ok || !qData.question) {
+                      // No question available; just apply move (treat as free move)
                       applyPendingMove(!localMode && !!game._id);
+                      return;
                     }
+                    // For remote games we must first register pending BEFORE showing modal to avoid race with answering quickly.
+                    if (!localMode && game._id) {
+                      // secondary guard before pending
+                      if (persisted !== true) return;
+                     const userId = localStorage.getItem('userId');
+                     const pendingRes = await fetch(`/api/games/${game._id}/pending`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, pieceId, toX, toY, category: effectiveCategory, questionId: qData.question._id })
+                      });
+                      if (!pendingRes.ok) {
+                        const perr = await pendingRes.json().catch(()=>({}));
+                        let msg = 'Pending failed';
+                        switch (perr.error) {
+                          case 'ALREADY_PENDING': msg = 'Already have a pending question.'; break;
+                          case 'NOT_YOUR_TURN': msg = 'Turn changed before move.'; break;
+                          case 'CATEGORY_MISMATCH': msg = 'Category mismatch – reselect square.'; break;
+                          case 'RATE_LIMIT': msg = 'Too fast – slow down.'; break;
+                          default: break;
+                        }
+                        setToast({ id: ++toastCounter.current, type: 'error', message: msg });
+                        setPendingMove(null);
+                        setSelected(null);
+                        return;
+                      }
+                    }
+                    setQuestion({ id: qData.question._id, text: qData.question.text, choices: qData.question.choices });
+                    setQuestionOpen(true);
                   } catch (e) {
-                    console.error('Fetch question failed', e);
+                    console.error('Fetch/register question failed', e);
                     applyPendingMove(!localMode && !!game._id);
                   } finally {
                     setQuestionLoading(false);
@@ -486,37 +590,75 @@ export default function GamePage() {
         onAnswer={async (idx) => {
           const qid = question?.id;
           let correct = false;
-          if (qid) {
+          if (!localMode && game?._id && pendingMove && qid) {
+            try {
+              const userId = localStorage.getItem('userId');
+              const { pieceId, toX, toY } = pendingMove;
+              // perform attempt, retry once if 404
+              const gid = game!._id; // non-null asserted
+              async function doAttempt() {
+                return fetch(`/api/games/${gid}/attempt`, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId, pieceId, toX, toY, questionId: qid, answerIndex: idx })
+                });
+              }
+              let res = await doAttempt();
+              if (res.status === 404) {
+                // possible replication lag or late persistence: re-fetch game
+                const reload = await fetch(`/api/games/${gid}`);
+                if (reload.ok) {
+                  res = await doAttempt();
+                }
+              }
+              const data = await res.json().catch(()=>({}));
+              if (res.ok) {
+                correct = !!data.correct;
+                if (data.error === 'NO_PENDING') {
+                  setToast({ id: ++toastCounter.current, type: 'error', message: 'Move expired – reselect piece.' });
+                } else if (correct) {
+                  setToast({ id: ++toastCounter.current, type: 'success', message: 'Correct! Move applied.' });
+                } else {
+                  setToast({ id: ++toastCounter.current, type: 'error', message: 'Incorrect – Turn Lost.' });
+                }
+              } else {
+                const err = data.error;
+                let msg = err || 'Move failed';
+                switch (err) {
+                  case 'NOT_YOUR_TURN': msg = 'Not your turn.'; break;
+                  case 'NO_PENDING': msg = 'No pending move – retry.'; break;
+                  case 'MISMATCH_PENDING': msg = 'Move changed – retry.'; break;
+                  case 'PENDING_EXPIRED': msg = 'Question expired – reselect piece.'; break;
+                  case 'CATEGORY_MISMATCH': msg = 'Category mismatch.'; break;
+                  case 'NOT_FOUND': msg = 'Game not found (maybe not persisted).'; break;
+                  default: break;
+                }
+                setToast({ id: ++toastCounter.current, type: 'error', message: msg });
+              }
+            } catch (e) {
+              console.warn('Attempt failed', e);
+              setToast({ id: ++toastCounter.current, type: 'error', message: 'Network error – try again.' });
+            }
+          } else if (qid) {
+            // Local mode correctness check via questions/check
             try {
               const res = await fetch('/api/questions/check', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ questionId: qid, answerIndex: idx })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ questionId: qid, answerIndex: idx })
               });
               const data = await res.json();
               correct = !!data.correct;
-            } catch (e) {
-              console.error('Answer validation failed', e);
-              correct = false; // treat as incorrect on failure
+            } catch {
+              correct = false;
+            }
+            if (correct) {
+              applyPendingMove(false);
+              setToast({ id: ++toastCounter.current, type: 'success', message: 'Correct! Move applied.' });
+            } else {
+              setToast({ id: ++toastCounter.current, type: 'error', message: 'Incorrect – Turn Lost.' });
+              setPendingMove(null);
+              setSelected(null);
             }
           }
-          if (correct) {
-            applyPendingMove(!localMode && !!game?._id);
-            setToast({ id: ++toastCounter.current, type: 'success', message: 'Correct! Move applied.' });
-          } else {
-            // Advance turn even on incorrect answer
-            setTurnTeam(prev => {
-              if (!game) return prev;
-              const teamsInGame: Team[] = Array.from(new Set(game.pieces.filter(p=>p.alive).map(p => p.team)));
-              const base = ['A','B','C','D'] as const;
-              const order: Team[] = base.filter(t => teamsInGame.includes(t));
-              const idx = order.indexOf(prev);
-              return order[(idx + 1) % order.length];
-            });
-            setPendingMove(null);
-            setSelected(null);
-            setToast({ id: ++toastCounter.current, type: 'error', message: 'Incorrect – Turn Lost.' });
-          }
+
           setQuestionHistory(h => [...h, { qid, correct, category: pendingMove?.category || '' }]);
           setQuestionOpen(false);
           setQuestion(null);
@@ -540,6 +682,19 @@ export default function GamePage() {
           }>
             Your Turn
           </div>
+          {questionHistory.length > 0 && (
+            <div className="fixed bottom-4 right-4 w-48 max-h-56 overflow-auto text-[11px] bg-slate-800/70 border border-slate-600 rounded p-2 backdrop-blur shadow">
+              <div className="font-semibold text-slate-300 mb-1">Questions</div>
+              <ul className="space-y-1">
+                {questionHistory.slice(-12).reverse().map((q,i) => (
+                  <li key={i} className={`flex justify-between items-center px-1 py-0.5 rounded ${q.correct ? 'bg-emerald-600/20 text-emerald-300' : 'bg-rose-600/20 text-rose-300'}`}>
+                    <span className="truncate max-w-[90px]" title={q.category}>{q.category}</span>
+                    <span>{q.correct ? '✔' : '✖'}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

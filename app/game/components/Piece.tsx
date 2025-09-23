@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaFlag } from 'react-icons/fa';
 import { Piece } from '@/models/types';
 
 const levelGlyph: Record<number, string> = { 1: 'P', 2: 'N', 3: 'C' }; // fallback glyphs
@@ -49,7 +50,7 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
         filter: piece.level === 1 ? undefined : undefined
       }}
     >
-      {piece.level === 1 && (
+      {piece.level === 1 && !piece.isFlag && (
         <>
           <img
             ref={imgEl}
@@ -71,7 +72,13 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
           <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
         </>
       )}
-      {piece.level === 2 && (
+      {piece.isFlag && (
+        <div className={`w-full h-full flex items-center justify-center pointer-events-none select-none ${piece.team === 'A' ? 'text-blue-300' : piece.team === 'B' ? 'text-rose-300' : piece.team === 'C' ? 'text-emerald-300' : 'text-amber-300'}`}> 
+          <FaFlag className="w-8 h-8 md:w-10 md:h-10 drop-shadow flag-icon" />
+          <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
+        </div>
+      )}
+  {piece.level === 2 && !piece.isFlag && (
         <>
           <img
             ref={imgEl}
@@ -93,7 +100,7 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
           <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
         </>
       )}
-      {piece.level === 3 && (
+  {piece.level === 3 && !piece.isFlag && (
         <>
           <img
             ref={imgEl}

@@ -1,5 +1,8 @@
 import { CATEGORIES, Piece, Team, Game, Pos } from '@/models/types';
 
+// Global board dimension (was 8, now 7 for a 7x7 board)
+export const BOARD_SIZE = 7;
+
 // Cross-runtime UUID-ish generator (prefers crypto.randomUUID if available)
 function generateId(): string {
   // Access global crypto in a runtime-agnostic way without suppressing TS.
@@ -33,10 +36,10 @@ export function shuffle<T>(arr: T[]): T[] {
 }
 
 export function generateBoardCategories(): string[][] {
-  // Distribute categories as evenly as possible over 64 squares
-  const total = 64;
+  // Distribute categories as evenly as possible over BOARD_SIZE^2 squares
+  const total = BOARD_SIZE * BOARD_SIZE; // 49 for 7x7
   const n = CATEGORIES.length; // now 9
-  const base = Math.floor(total / n); // 7 each = 63
+  const base = Math.floor(total / n);
   let remainder = total - base * n; // 1 leftover
   const pool: string[] = [];
   for (const c of CATEGORIES) {
@@ -47,9 +50,9 @@ export function generateBoardCategories(): string[][] {
   shuffle(pool);
   const board: string[][] = [];
   let idx = 0;
-  for (let y = 0; y < 8; y++) {
+  for (let y = 0; y < BOARD_SIZE; y++) {
     board[y] = [];
-    for (let x = 0; x < 8; x++) {
+    for (let x = 0; x < BOARD_SIZE; x++) {
       board[y][x] = pool[idx++];
     }
   }
@@ -57,25 +60,20 @@ export function generateBoardCategories(): string[][] {
 }
 
 export function generateInitialPieces(playerCount: number, teams?: Team[]): Piece[] {
-  // Layout clusters in corners (and optionally remaining two corners) with 6 pieces each.
-  // Corner clusters definitions (can tweak later for balance):
-  const clusters: Record<string, Pos[]> = {
-    A: [
-      { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 },
-      { x: 1, y: 1 }, { x: 2, y: 0 }, { x: 0, y: 2 },
-    ],
-    B: [
-      { x: 7, y: 7 }, { x: 6, y: 7 }, { x: 7, y: 6 },
-      { x: 6, y: 6 }, { x: 5, y: 7 }, { x: 7, y: 5 },
-    ],
-    C: [
-      { x: 7, y: 0 }, { x: 6, y: 0 }, { x: 7, y: 1 },
-      { x: 6, y: 1 }, { x: 5, y: 0 }, { x: 7, y: 2 },
-    ],
-    D: [
-      { x: 0, y: 7 }, { x: 1, y: 7 }, { x: 0, y: 6 },
-      { x: 1, y: 6 }, { x: 2, y: 7 }, { x: 0, y: 5 },
-    ],
+  // Each team: 5 pawns (level 1) + 1 flag (special) positioned in its farthest corner square.
+  const max = BOARD_SIZE - 1;
+  const flagSquares: Record<Team, Pos> = {
+    A: { x: 0, y: 0 },
+    B: { x: max, y: max },
+    C: { x: max, y: 0 },
+    D: { x: 0, y: max },
+  };
+  // Candidate pawn placement patterns around each corner (excluding the flag square)
+  const pawnPatterns: Record<Team, Pos[]> = {
+    A: [ { x:1,y:0 }, { x:0,y:1 }, { x:1,y:1 }, { x:2,y:0 }, { x:0,y:2 } ],
+    B: [ { x:max-1,y:max }, { x:max,y:max-1 }, { x:max-1,y:max-1 }, { x:max-2,y:max }, { x:max,y:max-2 } ],
+    C: [ { x:max-1,y:0 }, { x:max,y:1 }, { x:max-1,y:1 }, { x:max-2,y:0 }, { x:max,y:2 } ],
+    D: [ { x:1,y:max }, { x:0,y:max-1 }, { x:1,y:max-1 }, { x:2,y:max }, { x:0,y:max-2 } ],
   };
   const order: Team[] = teams && teams.length ? teams : ['A','B','C','D'];
   // If explicit teams provided, override playerCount to the number of teams actually given
@@ -83,15 +81,19 @@ export function generateInitialPieces(playerCount: number, teams?: Team[]): Piec
   const pieces: Piece[] = [];
   for (let i = 0; i < Math.min(effectiveCount, order.length); i++) {
     const team = order[i];
-    for (const pos of clusters[team]) {
-  pieces.push({ id: generateId(), team, level: 1, x: pos.x, y: pos.y, alive: true });
+    // Flag
+    const f = flagSquares[team];
+    pieces.push({ id: generateId(), team, level: 1, x: f.x, y: f.y, alive: true, isFlag: true });
+    // Pawns
+    for (const p of pawnPatterns[team]) {
+      pieces.push({ id: generateId(), team, level: 1, x: p.x, y: p.y, alive: true });
     }
   }
   return pieces;
 }
 
 export function isNeighbor(from: Pos, to: Pos): boolean {
-  if (to.x < 0 || to.x > 7 || to.y < 0 || to.y > 7) return false;
+  if (to.x < 0 || to.x >= BOARD_SIZE || to.y < 0 || to.y >= BOARD_SIZE) return false;
   const dx = Math.abs(from.x - to.x);
   const dy = Math.abs(from.y - to.y);
   if (dx === 0 && dy === 0) return false;
@@ -113,7 +115,7 @@ export function createNewGame(params: CreateGameParams): Game {
   const pieces = generateInitialPieces(playerCount, params.explicitPlayers.map(p=>p.team));
     // Generate two distinct black hole squares not occupied by initial pieces
     const occupied = new Set(pieces.map(p => `${p.x},${p.y}`));
-    function randomSquare(): {x:number;y:number} { return { x: Math.floor(Math.random()*8), y: Math.floor(Math.random()*8) }; }
+  function randomSquare(): {x:number;y:number} { return { x: Math.floor(Math.random()*BOARD_SIZE), y: Math.floor(Math.random()*BOARD_SIZE) }; }
     const blackHoles: {x:number;y:number}[] = [];
     while (blackHoles.length < 2) {
       const candidate = randomSquare();
@@ -139,7 +141,7 @@ export function createNewGame(params: CreateGameParams): Game {
   const pieces = generateInitialPieces(playerCount);
   // Generate two distinct black hole squares not occupied by initial pieces
   const occupied = new Set(pieces.map(p => `${p.x},${p.y}`));
-  function randomSquare(): {x:number;y:number} { return { x: Math.floor(Math.random()*8), y: Math.floor(Math.random()*8) }; }
+  function randomSquare(): {x:number;y:number} { return { x: Math.floor(Math.random()*BOARD_SIZE), y: Math.floor(Math.random()*BOARD_SIZE) }; }
   const blackHoles: {x:number;y:number}[] = [];
   while (blackHoles.length < 2) {
     const candidate = randomSquare();

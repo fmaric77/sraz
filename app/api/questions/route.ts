@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
   if (!docs.length) return NextResponse.json({ error: 'no questions' }, { status: 404 });
   const q = docs[0];
   // Hide correctIndex from client; provide separate validation endpoint (future)
-  const { correctIndex: _unusedCorrectIndex, ...rest } = q as Question;
-  return NextResponse.json({ question: rest });
+  // Strip out correctIndex and serialize _id to string
+  const { correctIndex: _unusedCorrectIndex, _id, ...rest } = q as Question;
+  const question = {
+    _id: _id?.toString(),
+    ...rest,
+  };
+  return NextResponse.json({ question });
 }
