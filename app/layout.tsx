@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sraz",
-  description: "Sraz – strategy meets knowledge on an 8×8 board",
+  title: "Mind Siege",
+  description: "Mind Siege – strategy meets knowledge on an 8×8 board",
   icons: {
     icon: "/images/icon.png",
     shortcut: "/images/icon.png",

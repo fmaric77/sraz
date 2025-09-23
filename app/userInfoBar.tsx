@@ -18,7 +18,7 @@ export function UserInfoBar() {
   }, []);
   return (
     <header className="w-full border-b bg-white/60 backdrop-blur px-4 py-2 flex items-center justify-between text-sm">
-      <Link href="/" className="font-semibold">Sraz</Link>
+  <Link href="/" className="font-semibold">Mind Siege</Link>
       <div className="flex items-center gap-4">
         {loading ? <span className="text-gray-500">...</span> : me ? (
           <>

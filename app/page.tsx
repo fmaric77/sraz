@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-800 text-slate-100">
       <header className="w-full px-6 py-4 grid grid-cols-3 items-center">
-  <h1 className="text-xl font-bold">Sraz</h1>
+  <h1 className="text-xl font-bold">Mind Siege</h1>
         <div className="flex justify-center">
           <button
             onClick={async () => {
