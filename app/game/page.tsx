@@ -132,7 +132,7 @@ export default function GamePage() {
   let channel: GameAblyChannel | null = null;
   let client: GameAblyClient | null = null;
   interface AblyEnvelope { type: string; data: unknown; ts: number }
-  interface GameMovePayload { pieces?: Piece[]; nextTurnUserId?: string }
+  interface GameMovePayload { pieces?: Piece[]; nextTurnUserId?: string; players?: { userId: string; team: Team }[]; eliminatedTeam?: Team }
     let mounted = true;
     (async () => {
       try {
@@ -154,13 +154,22 @@ export default function GamePage() {
             if (payload?.pieces) {
               setGame(g => {
                 if (!g) return g;
-                const validTeams = new Set((g.players||[]).map(p=>p.team));
+                const nextPlayers = payload.players && Array.isArray(payload.players) ? payload.players : g.players || [];
+                const validTeams = new Set((nextPlayers||[]).map(p=>p.team));
                 const sanitized = (payload.pieces || []).filter((p)=> validTeams.has(p.team));
                 if (sanitized.length !== (payload.pieces || []).length) {
                   console.warn('Sanitized extraneous team pieces from realtime payload');
                 }
-                return { ...g, pieces: sanitized, turnOfUserId: payload.nextTurnUserId || g.turnOfUserId };
+                return { ...g, pieces: sanitized, players: nextPlayers, turnOfUserId: payload.nextTurnUserId || g.turnOfUserId };
               });
+              // If players list changed, update local membership state
+              if (payload.players && currentUserId) {
+                const stillMember = payload.players.some(p => p.userId === currentUserId);
+                if (!stillMember) setMembershipDenied(true);
+                else setMembershipDenied(false);
+                const me = payload.players.find(p => p.userId === currentUserId);
+                if (me) setMyTeam(me.team);
+              }
               if (payload?.nextTurnUserId && game?.players) {
                 const nextPlayer = game.players.find(p => p.userId === payload.nextTurnUserId);
                 if (nextPlayer) setTurnTeam(nextPlayer.team);

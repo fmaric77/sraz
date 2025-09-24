@@ -72,6 +72,30 @@ export async function POST(req: NextRequest) {
   // Determine if game ended: only one team remains alive
   const aliveTeamsFinal = Array.from(new Set(updatedPieces.filter(p=>p.alive).map(p=>p.team)));
   const flagCapture = events.find(e => e.type === 'flag-capture') as (CombatEvent & { type: 'flag-capture'; flagTeam: string; attackerTeam: string }) | undefined;
+  // If flag captured and more than 2 active teams remain on board, eliminate the captured team (do not end game)
+  const activeTeamsBefore = new Set(updatedPieces.filter(p=>p.alive).map(p=>p.team));
+  if (flagCapture && activeTeamsBefore.size > 2) {
+    const eliminatedTeam = flagCapture.flagTeam as Game['players'][number]['team'];
+    const newPieces = updatedPieces.map(p => p.team === eliminatedTeam ? { ...p, alive: false } : p);
+    const newPlayers = game.players.filter(p => p.team !== eliminatedTeam);
+    const aliveTeamsPost = Array.from(new Set(newPieces.filter(p=>p.alive).map(p=>p.team)));
+    const canonicalOrderPost: Game['players'][number]['team'][] = ['A','B','C','D'];
+    const teamOrderPost = canonicalOrderPost.filter(t => (aliveTeamsPost as typeof canonicalOrderPost).includes(t));
+    const idxPost = teamOrderPost.indexOf(currentTeam);
+    const nextTeamPost = teamOrderPost[(idxPost + 1) % teamOrderPost.length];
+    const nextUserPost = newPlayers.find(p => p.team === nextTeamPost)?.userId || userId;
+    // If only one team remains, finish game now
+    if (aliveTeamsPost.length === 1) {
+      const winnerTeam = aliveTeamsPost[0] as Game['players'][number]['team'];
+      const { rated, eloResults } = await finalizeGameAndBroadcast({ game, gameId: id, updatedPieces: newPieces, winnerTeam, flagCapture: true });
+      return NextResponse.json({ ok: true, finished: true, winnerTeam, rated, eloResults });
+    }
+    await gamesCol.updateOne({ _id: id }, { $set: { pieces: newPieces, players: newPlayers, turnOfUserId: nextUserPost } });
+    await publishGameEvent(id, 'game.move', { pieceId, toX, toY, events, nextTurnUserId: nextUserPost, pieces: newPieces, players: newPlayers, eliminatedTeam });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Otherwise, standard end-game checks
   const gameEnded = aliveTeamsFinal.length === 1 || !!flagCapture;
   let winnerTeam: Game['players'][number]['team'] | null = null;
   if (gameEnded) {

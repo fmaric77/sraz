@@ -97,17 +97,36 @@ export async function POST(req: NextRequest) {
     const nextUser = game.players.find(p=>p.team===nextTeam)?.userId || userId;
     // Handle flag capture and game end scenarios
     const flagCapture = events.find(e => e.type === 'flag-capture') as (CombatEvent & { type: 'flag-capture'; flagTeam: string; attackerTeam: string }) | undefined;
-    const totalPlayers = game.players.length;
     if (flagCapture) {
-      if (totalPlayers > 2) {
-        // Multiplayer: transfer captured team's pieces to attacker and continue
-        const transferTeam = flagCapture.attackerTeam as Team;
-        const newPieces = updatedPieces.map(p => p.team === flagCapture.flagTeam ? { ...p, team: transferTeam } : p);
+      // Determine number of active teams currently on the board (alive pieces)
+      const activeTeamsCount = new Set(updatedPieces.filter(p => p.alive).map(p => p.team)).size;
+      if (activeTeamsCount > 2) {
+        // Multiplayer: eliminate captured team -> all their pieces removed, player becomes spectator
+        const eliminatedTeam = flagCapture.flagTeam as Team;
+        // Mark all eliminated team's pieces as dead
+        const newPieces = updatedPieces.map(p => p.team === eliminatedTeam ? { ...p, alive: false } : p);
+        // Remove eliminated player from the game roster
+        const newPlayers = game.players.filter(p => p.team !== eliminatedTeam);
+        // Recompute next turn based on remaining alive teams and players
+        const aliveTeamsPost = Array.from(new Set(newPieces.filter(p => p.alive).map(p => p.team)));
+        const canonicalTeams: Team[] = ['A','B','C','D'];
+        const orderPost = canonicalTeams.filter(t => (aliveTeamsPost as Team[]).includes(t));
+        const currentTeam = game.players.find(p=>p.userId===userId)!.team;
+        const idxPost = orderPost.indexOf(currentTeam);
+        const nextTeamPost = orderPost[(idxPost+1) % orderPost.length];
+        const nextUserPost = newPlayers.find(p=>p.team===nextTeamPost)?.userId || userId;
+        // If only one team remains, finish the game immediately
+        const teamsLeft = Array.from(new Set(newPieces.filter(p=>p.alive).map(p=>p.team)));
+        if (teamsLeft.length === 1) {
+          const winnerTeam = teamsLeft[0] as Team;
+          const { rated, eloResults } = await finalizeGameAndBroadcast({ game, gameId: id, updatedPieces: newPieces, winnerTeam, flagCapture: true });
+          return NextResponse.json({ ok: true, correct: true, finished: true, winnerTeam, rated, eloResults });
+        }
         await gamesCol.updateOne(
           { _id: id },
-          { $set: { pieces: newPieces, turnOfUserId: nextUser, pendingQuestion: null }, $push: { questionHistory: historyEntry } }
+          { $set: { pieces: newPieces, players: newPlayers, turnOfUserId: nextUserPost, pendingQuestion: null }, $push: { questionHistory: historyEntry } }
         );
-        await publishGameEvent(id, 'game.move', { pieceId, toX, toY, events, nextTurnUserId: nextUser, pieces: newPieces });
+        await publishGameEvent(id, 'game.move', { pieceId, toX, toY, events, nextTurnUserId: nextUserPost, pieces: newPieces, players: newPlayers, eliminatedTeam });
         return NextResponse.json({ ok: true, correct: true });
       } else {
         // Two-player: flag capture ends the game
