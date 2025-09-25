@@ -45,12 +45,12 @@ export default function SettingsPage() {
   }, [router]);
 
   if (loading) return (
-    <div className="min-h-[60vh] flex items-center justify-center game-bg w-full">
+  <div className="min-h-[60vh] flex items-center justify-center w-full">
       <div className="text-sm text-slate-300 animate-pulse">Loading settings…</div>
     </div>
   );
   if (!data?.user || !userId) return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center game-bg w-full p-6">
+  <div className="min-h-[60vh] flex flex-col items-center justify-center w-full p-6">
       <div className="px-6 py-4 rounded-xl bg-slate-800/70 border border-slate-700 text-sm text-slate-300 backdrop-blur shadow-lg">
         <p className="mb-2 font-medium text-slate-200">Not logged in</p>
         <p className="text-xs text-slate-400">Sign in to manage your profile and stats.</p>
@@ -80,7 +80,7 @@ export default function SettingsPage() {
     }
   }
   return (
-    <div className="game-bg min-h-screen w-full py-10 px-4 flex flex-col items-center">
+  <div className="min-h-screen w-full py-10 px-4 flex flex-col items-center">
       <div className="w-full max-w-3xl flex flex-col gap-8">
         <div className="flex items-start justify-between gap-4">
           <div>

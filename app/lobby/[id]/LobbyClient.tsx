@@ -96,7 +96,7 @@ const LobbyComponent: React.FC<LobbyProps> = ({ lobbyId }) => {
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-start p-6 text-slate-100">
+  <div className="min-h-screen w-full flex flex-col items-center justify-start p-6">
       <div className="w-full max-w-lg space-y-4">
         <h1 className="text-xl font-semibold tracking-tight">Lobby</h1>
         {status && <div className="text-xs text-slate-400">{status}</div>}

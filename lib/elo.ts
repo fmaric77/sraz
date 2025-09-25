@@ -71,7 +71,7 @@ export function updateEloHeadToHead(aElo: number, bElo: number, result: 'A' | 'B
 // Helper to derive score allocations for free-for-all given ordered finish list.
 // If winners array contains 1 id => winner score 1, others 0.
 // If multiple winners (tie), each gets 1/numWinners.
-export function buildScoresForWinners(orderOrWinners: string[], _totalPlayers: number): Record<string, number> {
+export function buildScoresForWinners(orderOrWinners: string[]): Record<string, number> {
   if (orderOrWinners.length === 0) throw new Error('No winners provided');
   const scores: Record<string, number> = {};
   const portion = 1 / orderOrWinners.length;
@@ -82,7 +82,7 @@ export function buildScoresForWinners(orderOrWinners: string[], _totalPlayers: n
 
 // High-level pipeline: given list of players with elo and array of winner userIds (1..N tie) produce EloResult[]
 export function computeResultsFromWinnerSet(players: { userId: string; elo: number }[], winnerUserIds: string[], kFactor?: number): EloResult[] {
-  const scoreMap = buildScoresForWinners(winnerUserIds, players.length);
+  const scoreMap = buildScoresForWinners(winnerUserIds);
   const base: EloPlayerState[] = players.map(p => ({ userId: p.userId, preElo: p.elo, score: scoreMap[p.userId] ?? 0 }));
   return updateEloMulti(base, { kFactor });
 }

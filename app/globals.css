@@ -25,6 +25,51 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Board skin variants via CSS variables
+   Using variables ensures inner previews override outer (global) skins correctly. */
+:root {
+  /* defaults (emerald-like) */
+  --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(240,252,247,0.85) 40%, rgba(214,247,236,0.8) 100%);
+  --sq-dark-bg: radial-gradient(circle at 65% 65%, rgba(6,78,59,0.95), rgba(4,120,87,0.9) 45%, rgba(2,44,34,0.85) 100%);
+  --sq-light-bg-hover: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%);
+  --sq-dark-bg-hover: radial-gradient(circle at 65% 65%, rgba(6,95,70,0.95), rgba(5,150,105,0.92) 50%, rgba(2,60,45,0.9) 100%);
+}
+
+.skin-emerald {
+  --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%);
+  --sq-dark-bg: radial-gradient(circle at 65% 65%, rgba(6,78,59,0.95), rgba(4,120,87,0.92) 50%, rgba(2,60,45,0.9) 100%);
+  --sq-light-bg-hover: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%);
+  --sq-dark-bg-hover: radial-gradient(circle at 65% 65%, rgba(6,95,70,0.95), rgba(5,150,105,0.92) 50%, rgba(2,60,45,0.9) 100%);
+}
+
+.skin-nebula {
+  --sq-light-bg: radial-gradient(circle at 30% 30%, rgba(219,234,254,0.95), rgba(191,219,254,0.9) 45%, rgba(147,197,253,0.85) 100%);
+  --sq-dark-bg: radial-gradient(circle at 70% 70%, rgba(30,58,138,0.95), rgba(29,78,216,0.9) 45%, rgba(17,24,39,0.9) 100%);
+  --sq-light-bg-hover: radial-gradient(circle at 30% 30%, rgba(239,246,255,1), rgba(191,219,254,0.95) 45%, rgba(147,197,253,0.9) 100%);
+  --sq-dark-bg-hover: radial-gradient(circle at 70% 70%, rgba(30,64,175,0.98), rgba(37,99,235,0.94) 45%, rgba(17,24,39,0.92) 100%);
+}
+
+.skin-crimson {
+  --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(254,226,226,0.95), rgba(254,202,202,0.9) 45%, rgba(254,178,178,0.85) 100%);
+  --sq-dark-bg: radial-gradient(circle at 65% 65%, rgba(153,27,27,0.95), rgba(220,38,38,0.92) 50%, rgba(69,10,10,0.9) 100%);
+  --sq-light-bg-hover: radial-gradient(circle at 35% 35%, rgba(255,235,235,1), rgba(254,205,205,0.95) 45%, rgba(254,185,185,0.9) 100%);
+  --sq-dark-bg-hover: radial-gradient(circle at 65% 65%, rgba(185,28,28,0.98), rgba(239,68,68,0.94) 50%, rgba(88,28,28,0.92) 100%);
+}
+
+.skin-steel {
+  --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(243,244,246,0.95), rgba(229,231,235,0.9) 45%, rgba(209,213,219,0.85) 100%);
+  --sq-dark-bg: radial-gradient(circle at 65% 65%, rgba(31,41,55,0.95), rgba(55,65,81,0.92) 50%, rgba(17,24,39,0.9) 100%);
+  --sq-light-bg-hover: radial-gradient(circle at 35% 35%, rgba(248,249,251,1), rgba(236,238,242,0.95) 45%, rgba(217,221,227,0.9) 100%);
+  --sq-dark-bg-hover: radial-gradient(circle at 65% 65%, rgba(31,41,55,0.98), rgba(59,71,89,0.94) 50%, rgba(17,24,39,0.92) 100%);
+}
+
+.skin-violet {
+  --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(243,232,255,0.95), rgba(233,213,255,0.9) 45%, rgba(216,180,254,0.85) 100%);
+  --sq-dark-bg: radial-gradient(circle at 65% 65%, rgba(88,28,135,0.95), rgba(124,58,237,0.92) 50%, rgba(49,46,129,0.9) 100%);
+  --sq-light-bg-hover: radial-gradient(circle at 35% 35%, rgba(248,240,255,1), rgba(237,223,255,0.95) 45%, rgba(221,191,255,0.9) 100%);
+  --sq-dark-bg-hover: radial-gradient(circle at 65% 65%, rgba(100,30,150,0.98), rgba(139,92,246,0.94) 50%, rgba(55,48,163,0.92) 100%);
+}
+
 @keyframes demote-flash {
   0% { box-shadow: 0 0 0 0 rgba(250,204,21,0.0); transform: scale(1); }
   25% { box-shadow: 0 0 12px 4px rgba(250,204,21,0.9); transform: scale(1.08); }
@@ -56,10 +101,10 @@ body {
 .team-d-tint { filter: brightness(0) saturate(100%) invert(14%) sepia(93%) saturate(7475%) hue-rotate(2deg) brightness(94%) contrast(105%); }
 
 /* Board square styling */
-.sq-light { background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(240,252,247,0.85) 40%, rgba(214,247,236,0.8) 100%); }
-.sq-dark { background: radial-gradient(circle at 65% 65%, rgba(6,78,59,0.95), rgba(4,120,87,0.9) 45%, rgba(2,44,34,0.85) 100%); }
-.sq-light:hover { background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%); }
-.sq-dark:hover { background: radial-gradient(circle at 65% 65%, rgba(6,95,70,0.95), rgba(5,150,105,0.92) 50%, rgba(2,60,45,0.9) 100%); }
+.sq-light { background: var(--sq-light-bg); }
+.sq-dark { background: var(--sq-dark-bg); }
+.sq-light:hover { background: var(--sq-light-bg-hover); }
+.sq-dark:hover { background: var(--sq-dark-bg-hover); }
 .sq-selected { outline: 3px solid rgba(250,204,21,0.85); outline-offset: -2px; }
 .sq-droppable { box-shadow: 0 0 0 3px rgba(129,140,248,0.65) inset, 0 0 10px 2px rgba(99,102,241,0.55); }
 

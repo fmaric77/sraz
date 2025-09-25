@@ -115,12 +115,18 @@ export function createNewGame(params: CreateGameParams): Game {
   const pieces = generateInitialPieces(playerCount, params.explicitPlayers.map(p=>p.team));
     // Generate two distinct black hole squares not occupied by initial pieces
     const occupied = new Set(pieces.map(p => `${p.x},${p.y}`));
+    // Allow black holes only within the 3x3 center block (nine central squares)
+    const center = Math.floor(BOARD_SIZE / 2);
+    function isAllowedBlackHoleSquare(x:number,y:number){
+      return Math.abs(x - center) <= 1 && Math.abs(y - center) <= 1;
+    }
   function randomSquare(): {x:number;y:number} { return { x: Math.floor(Math.random()*BOARD_SIZE), y: Math.floor(Math.random()*BOARD_SIZE) }; }
     const blackHoles: {x:number;y:number}[] = [];
     while (blackHoles.length < 2) {
       const candidate = randomSquare();
       const key = `${candidate.x},${candidate.y}`;
       if (occupied.has(key)) continue;
+      if (!isAllowedBlackHoleSquare(candidate.x, candidate.y)) continue;
       if (blackHoles.some(b => b.x === candidate.x && b.y === candidate.y)) continue;
       blackHoles.push(candidate);
     }
@@ -141,12 +147,18 @@ export function createNewGame(params: CreateGameParams): Game {
   const pieces = generateInitialPieces(playerCount);
   // Generate two distinct black hole squares not occupied by initial pieces
   const occupied = new Set(pieces.map(p => `${p.x},${p.y}`));
+  // Allow black holes only within the 3x3 center block (nine central squares)
+  const center = Math.floor(BOARD_SIZE / 2);
+  function isAllowedBlackHoleSquare(x:number,y:number){
+    return Math.abs(x - center) <= 1 && Math.abs(y - center) <= 1;
+  }
   function randomSquare(): {x:number;y:number} { return { x: Math.floor(Math.random()*BOARD_SIZE), y: Math.floor(Math.random()*BOARD_SIZE) }; }
   const blackHoles: {x:number;y:number}[] = [];
   while (blackHoles.length < 2) {
     const candidate = randomSquare();
     const key = `${candidate.x},${candidate.y}`;
     if (occupied.has(key)) continue; // don't place under an initial piece
+    if (!isAllowedBlackHoleSquare(candidate.x, candidate.y)) continue; // restrict to 3x3 center block
     if (blackHoles.some(b => b.x === candidate.x && b.y === candidate.y)) continue;
     blackHoles.push(candidate);
   }
@@ -183,4 +195,26 @@ export function canMovePiece(pieces: Piece[], pieceId: string, to: Pos): boolean
   const piece = pieces.find(p => p.id === pieceId && p.alive);
   if (!piece) return false;
   return isNeighbor({ x: piece.x, y: piece.y }, to);
+}
+
+// Chess-like coordinate helpers (files: a.., ranks: 1..). Note: (0,0) -> a1
+export function posToCode(x: number, y: number): string {
+  if (x < 0 || y < 0 || x >= BOARD_SIZE || y >= BOARD_SIZE) return '';
+  const file = String.fromCharCode('a'.charCodeAt(0) + x);
+  const rank = (y + 1).toString();
+  return `${file}${rank}`;
+}
+
+export function codeToPos(code: string): Pos | null {
+  if (!code) return null;
+  const c = code.trim().toLowerCase();
+  // support formats like "a1" or "g7" within BOARD_SIZE
+  const match = /^([a-z])(\d+)$/.exec(c);
+  if (!match) return null;
+  const fileChar = match[1];
+  const rankNum = parseInt(match[2], 10);
+  const x = fileChar.charCodeAt(0) - 'a'.charCodeAt(0);
+  const y = rankNum - 1;
+  if (x < 0 || y < 0 || x >= BOARD_SIZE || y >= BOARD_SIZE) return null;
+  return { x, y };
 }

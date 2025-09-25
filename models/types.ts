@@ -105,6 +105,8 @@ export interface User {
   losses: number;
   draws: number; // reserved
   name?: string; // display name
+  purchasedSkins?: string[]; // owned cosmetic skin ids
+  selectedBoardSkin?: string; // active board skin id
 }
 
 // Stored game result summary for completed games (primarily 2-player rated matches)

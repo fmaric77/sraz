@@ -377,7 +377,7 @@ export default function GamePage() {
   }
 
   return (
-  <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8 game-bg text-slate-100">
+  <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-6xl flex flex-col items-center gap-4">
         {game && (
           <div className="flex flex-col items-center gap-1">

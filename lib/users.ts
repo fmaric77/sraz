@@ -1,6 +1,7 @@
 import { getCollection } from '@/lib/db';
 import { User } from '@/models/types';
 import bcrypt from 'bcryptjs';
+import { Document, ObjectId, UpdateFilter } from 'mongodb';
 
 export async function findUserByEmail(email: string): Promise<User | null> {
   const col = await getCollection<User>('users');
@@ -43,5 +44,41 @@ export async function updateUserEloAndRecord(userId: string, elo: number, delta:
 
 export async function updateUserName(userId: string, name: string) {
   const col = await getCollection<User>('users');
-  await col.updateOne({ _id: userId }, { $set: { name } });
+  // Try with string id first; fallback to ObjectId if needed
+  const res = await col.updateOne({ _id: userId } as unknown as Document, { $set: { name } } as UpdateFilter<User>);
+  if (!res.matchedCount && ObjectId.isValid(userId)) {
+    await col.updateOne({ _id: new ObjectId(userId) } as unknown as Document, { $set: { name } } as UpdateFilter<User>);
+  }
+}
+
+export async function addPurchasedSkin(userId: string, skinId: string) {
+  const col = await getCollection<User>('users');
+  // Add by string id, then fallback to ObjectId if not matched
+  const res = await col.updateOne({ _id: userId } as unknown as Document, { $addToSet: { purchasedSkins: skinId } } as UpdateFilter<User>);
+  if (!res.matchedCount && ObjectId.isValid(userId)) {
+    await col.updateOne({ _id: new ObjectId(userId) } as unknown as Document, { $addToSet: { purchasedSkins: skinId } } as UpdateFilter<User>);
+  }
+}
+
+export async function setSelectedBoardSkin(userId: string, skinId: string) {
+  const col = await getCollection<User>('users');
+  const res = await col.updateOne({ _id: userId } as unknown as Document, { $set: { selectedBoardSkin: skinId } } as UpdateFilter<User>);
+  if (!res.matchedCount && ObjectId.isValid(userId)) {
+    await col.updateOne({ _id: new ObjectId(userId) } as unknown as Document, { $set: { selectedBoardSkin: skinId } } as UpdateFilter<User>);
+  }
+}
+
+export async function setSelectedBoardSkinIfEmpty(userId: string, skinId: string) {
+  const col = await getCollection<User>('users');
+  const emptySelector = {
+    $or: [
+      { selectedBoardSkin: { $exists: false } },
+      { selectedBoardSkin: null },
+      { selectedBoardSkin: '' },
+    ],
+  } as Document;
+  const res = await col.updateOne({ _id: userId, ...emptySelector } as unknown as Document, { $set: { selectedBoardSkin: skinId } } as UpdateFilter<User>);
+  if (!res.matchedCount && ObjectId.isValid(userId)) {
+    await col.updateOne({ _id: new ObjectId(userId), ...emptySelector } as unknown as Document, { $set: { selectedBoardSkin: skinId } } as UpdateFilter<User>);
+  }
 }

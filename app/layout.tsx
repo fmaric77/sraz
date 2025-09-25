@@ -5,6 +5,7 @@ import { AuthModalProvider } from "./components/AuthModalProvider";
 import { AuthModal } from "./components/AuthModal";
 import { CurrentUserProvider } from "./components/CurrentUserProvider";
 import { SessionProvider } from "next-auth/react";
+import { SkinClass } from "@/app/skin-class";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +34,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased game-bg text-slate-100 min-h-screen`}>
         <SessionProvider>
           <AuthModalProvider>
             <CurrentUserProvider>
-              {children}
+              <SkinClass>
+                {children}
+              </SkinClass>
               <AuthModal />
             </CurrentUserProvider>
           </AuthModalProvider>

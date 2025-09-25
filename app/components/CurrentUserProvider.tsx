@@ -7,6 +7,8 @@ interface CurrentUserContextValue {
   email: string | null;
   name: string | null;
   elo: number | null;
+  purchasedSkins: string[];
+  selectedBoardSkin: string | null;
   setOptimisticName: (name: string) => void;
   refresh: () => Promise<void>;
 }
@@ -25,6 +27,8 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [elo, setElo] = useState<number | null>(null);
+  const [purchasedSkins, setPurchasedSkins] = useState<string[]>([]);
+  const [selectedBoardSkin, setSelectedBoardSkinState] = useState<string | null>(null);
 
   interface SessionUser { id?: string; email?: string | null; name?: string | null; elo?: number }
   interface SessionShape { user?: SessionUser; userId?: string }
@@ -35,6 +39,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
     setEmail(user.email || null);
     setName(user.name || null);
     setElo(user.elo ?? null);
+    // Best-effort: session may not include skins; they'll refresh via /api/user/me
   }, []);
 
   useEffect(() => {
@@ -50,16 +55,25 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
         setEmail(data.user.email || null);
         setName(data.user.name || null);
         setElo(data.user.elo ?? null);
+        setPurchasedSkins(data.user.purchasedSkins || []);
+        setSelectedBoardSkinState(data.user.selectedBoardSkin || null);
       }
     } catch {}
   }, []);
+
+  // Fetch full profile (including cosmetics) once session is known
+  useEffect(() => {
+    if (session?.user?.email) {
+      refresh();
+    }
+  }, [session?.user?.email, refresh]);
 
   const setOptimisticName = useCallback((next: string) => {
     setName(next);
   }, []);
 
   return (
-    <CurrentUserContext.Provider value={{ userId, email, name, elo, setOptimisticName, refresh }}>
+    <CurrentUserContext.Provider value={{ userId, email, name, elo, purchasedSkins, selectedBoardSkin, setOptimisticName, refresh }}>
       {children}
     </CurrentUserContext.Provider>
   );

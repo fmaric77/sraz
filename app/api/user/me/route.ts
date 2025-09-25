@@ -16,5 +16,7 @@ export async function GET(req: Request) {
     wins: user.wins,
     losses: user.losses,
     draws: user.draws,
+    purchasedSkins: user.purchasedSkins || [],
+    selectedBoardSkin: user.selectedBoardSkin || null,
   }}), { status: 200 });
 }

@@ -17,7 +17,7 @@ export default function Home() {
   const { name, email, userId } = useCurrentUser();
   const loggedIn = !!session?.user;
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gradient-to-br from-slate-900 via-indigo-900 to-slate-800 text-slate-100">
+  <div className="min-h-screen flex flex-col items-center">
       <header className="w-full px-6 py-4 grid grid-cols-3 items-center">
   <h1 className="text-xl font-bold">Mind Siege</h1>
         <div className="flex justify-center">
@@ -48,7 +48,10 @@ export default function Home() {
         </div>
         <div className="flex gap-3 justify-end items-center relative">
           {loggedIn ? (
-            <AvatarDropdown name={name} email={email} />
+            <>
+              <a href="/store" className="text-sm text-slate-300 hover:text-white underline decoration-transparent hover:decoration-white transition">Store</a>
+              <AvatarDropdown name={name} email={email} />
+            </>
           ) : (
             <>
               <button onClick={() => open('login')} className="text-sm hover:text-white underline decoration-transparent hover:decoration-white transition">Sign In</button>
