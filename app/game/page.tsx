@@ -653,7 +653,7 @@ export default function GamePage() {
                     }
                     setQuestion({ id: qData.question._id, text: qData.question.text, choices: qData.question.choices });
                     setQuestionOpen(true);
-                    setQuestionDeadline(Date.now() + 10_000); // 10 second window
+                    setQuestionDeadline(Date.now() + 20_000); // 20 second window
                   } catch (err) {
                     console.error('Fetch/register question failed', err);
                     applyPendingMove(!localMode && !!game._id);

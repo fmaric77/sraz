@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (game.pendingQuestion) {
     // TTL auto-clear if expired (12s authoritative)
     const createdAt = game.pendingQuestion.requestedAt ? new Date(game.pendingQuestion.requestedAt).getTime() : 0;
-    const PENDING_TTL_MS = 12_000;
+  const PENDING_TTL_MS = 22_000; // align with extended question answering window
     if (createdAt && Date.now() - createdAt > PENDING_TTL_MS) {
       await gamesCol.updateOne({ _id: id }, { $set: { pendingQuestion: null } });
     } else {

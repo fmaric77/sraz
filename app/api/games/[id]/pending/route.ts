@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (!game) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     if (game.turnOfUserId !== userId) return NextResponse.json({ error: 'NOT_YOUR_TURN' }, { status: 409 });
     if (game.pendingQuestion) {
-      const PENDING_TTL_MS = 12_000;
+  const PENDING_TTL_MS = 22_000; // keep in sync with attempt route TTL
       const createdAt = game.pendingQuestion.requestedAt ? new Date(game.pendingQuestion.requestedAt).getTime() : 0;
       if (!(createdAt && Date.now() - createdAt > PENDING_TTL_MS)) {
         return NextResponse.json({ error: 'ALREADY_PENDING' }, { status: 409 });
