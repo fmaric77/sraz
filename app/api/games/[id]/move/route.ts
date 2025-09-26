@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
-import { Game, Piece, User } from '@/models/types';
+import { Game, Piece } from '@/models/types';
 import { publishGameEvent } from '@/lib/realtime';
 import { resolveCombatAndMove, CombatEvent } from '@/lib/combat';
 import { BOARD_SIZE } from '@/lib/board';
-import { updateEloMulti } from '@/lib/elo';
-import { updateUserEloAndRecord } from '@/lib/users';
-import { GameResult } from '@/models/types';
+// Removed unused imports (ELO updates handled in finalizeGameAndBroadcast)
 import { finalizeGameAndBroadcast } from '@/lib/gameFinish';
 
 // POST /api/games/:id/move { pieceId, toX, toY, userId }
@@ -32,9 +30,10 @@ export async function POST(req: NextRequest) {
   if (!game) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
   // Guard: cannot move if a pendingQuestion exists (must answer via attempt flow)
   if (game.pendingQuestion) {
-    // TTL auto-clear if expired
+    // TTL auto-clear if expired (12s authoritative)
     const createdAt = game.pendingQuestion.requestedAt ? new Date(game.pendingQuestion.requestedAt).getTime() : 0;
-    if (createdAt && Date.now() - createdAt > 45_000) {
+    const PENDING_TTL_MS = 12_000;
+    if (createdAt && Date.now() - createdAt > PENDING_TTL_MS) {
       await gamesCol.updateOne({ _id: id }, { $set: { pendingQuestion: null } });
     } else {
       return NextResponse.json({ error: 'QUESTION_PENDING' }, { status: 409 });

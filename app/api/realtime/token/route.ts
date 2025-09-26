@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import Ably from 'ably';
 
 export async function GET(): Promise<NextResponse> {

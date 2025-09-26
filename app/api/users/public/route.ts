@@ -1,6 +1,5 @@
 import { getCollection } from '@/lib/db';
 import { User } from '@/models/types';
-import { ObjectId } from 'mongodb';
 
 export async function POST(req: Request) {
   try {

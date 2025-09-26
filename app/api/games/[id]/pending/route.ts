@@ -27,13 +27,12 @@ export async function POST(req: NextRequest) {
     if (!game) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
     if (game.turnOfUserId !== userId) return NextResponse.json({ error: 'NOT_YOUR_TURN' }, { status: 409 });
     if (game.pendingQuestion) {
-      // Allow override only if expired
+      const PENDING_TTL_MS = 12_000;
       const createdAt = game.pendingQuestion.requestedAt ? new Date(game.pendingQuestion.requestedAt).getTime() : 0;
-      if (createdAt && Date.now() - createdAt > 45_000) {
-        // continue and replace
-      } else {
+      if (!(createdAt && Date.now() - createdAt > PENDING_TTL_MS)) {
         return NextResponse.json({ error: 'ALREADY_PENDING' }, { status: 409 });
       }
+      // else expired -> allow overwrite
     }
     // Category integrity: allow any pick if square is Random, otherwise enforce match
     const boardCat = game.boardCategories[toY]?.[toX];

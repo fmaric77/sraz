@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import Board from './components/Board';
+import CategoryLegend from './components/CategoryLegend';
 import QuestionModal from './components/QuestionModal';
 import { Piece, Team, Game as FullGame } from '@/models/types';
 import { Avatar } from '@/app/components/Avatar';
@@ -36,6 +37,55 @@ export default function GamePage() {
   const [question, setQuestion] = useState<{ id?: string; text: string; choices: string[]; correctIndex?: number } | null>(null);
   const [questionOpen, setQuestionOpen] = useState(false);
   const [questionLoading, setQuestionLoading] = useState(false);
+  const [questionDeadline, setQuestionDeadline] = useState<number | null>(null); // epoch ms when current question expires
+
+  // Countdown + auto-timeout logic: if deadline passes without answer, treat as incorrect answer / lose turn
+  const [, forceRerender] = useState(0); // internal counter to force re-render for timer display
+  useEffect(() => {
+    if (!questionOpen || !questionDeadline) return;
+    const id = setInterval(() => {
+      if (!questionDeadline) return;
+      if (Date.now() >= questionDeadline) {
+        clearInterval(id);
+        // Simulate incorrect answer path
+        const qid = question?.id;
+        if (!qid) {
+          setQuestionOpen(false); setQuestion(null); setQuestionDeadline(null); setPendingMove(null); setSelected(null); return;
+        }
+        // Remote mode: we need to signal attempt with an invalid answer (e.g., -1) OR just expire locally and rely on turn change? We'll attempt with -1 expecting incorrect.
+        (async () => {
+          if (!localMode && game?._id && pendingMove) {
+            try {
+              const userId = localStorage.getItem('userId');
+              const { pieceId, toX, toY } = pendingMove;
+              await fetch(`/api/games/${game._id}/attempt`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, pieceId, toX, toY, questionId: qid, answerIndex: -1 })
+              });
+              // Toast will appear from turn event handler; fallback toast here:
+              setToast(t => t || { id: ++toastCounter.current, type: 'error', message: 'Time up – Turn Lost.' });
+            } catch {
+              setToast({ id: ++toastCounter.current, type: 'error', message: 'Time up – Turn Lost.' });
+            }
+          } else {
+            // Local mode: just mark incorrect and advance
+            setToast({ id: ++toastCounter.current, type: 'error', message: 'Time up – Turn Lost.' });
+            setPendingMove(null);
+            setSelected(null);
+          }
+          setQuestionHistory(h => [...h, { qid, correct: false, category: pendingMove?.category || '' }]);
+          setQuestionOpen(false);
+          setQuestion(null);
+          setQuestionDeadline(null);
+        })();
+      } else {
+        // Force re-render for remainingMs display
+        forceRerender(n => n + 1);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, [questionOpen, questionDeadline]);
+
+  // Removed explicit tick state (unused) – using forceRerender instead.
   const [toast, setToast] = useState<{ id: number; type: 'success' | 'error'; message: string } | null>(null);
   const [lastMovedPieceId, setLastMovedPieceId] = useState<string | null>(null);
   const [questionHistory, setQuestionHistory] = useState<{ qid?: string; correct: boolean; category: string }[]>([]);
@@ -45,6 +95,35 @@ export default function GamePage() {
   const [myTeam, setMyTeam] = useState<Team | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [playerInfo, setPlayerInfo] = useState<Record<string, { email: string; elo: number; name?: string }> | null>(null);
+  // Audio (piece move sound)
+  const moveSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize move sound once on client
+  useEffect(() => {
+    // Guard: Only create after hydration
+    try {
+      const audio = new Audio('/sound/1.wav');
+      audio.preload = 'auto';
+      audio.volume = 0.6; // moderate volume
+      moveSoundRef.current = audio;
+    } catch {
+      // ignore – audio unsupported
+    }
+  }, []);
+
+  function playMoveSound() {
+    const a = moveSoundRef.current;
+    if (!a) return;
+    try {
+      a.currentTime = 0; // restart for rapid moves
+      const playPromise = a.play();
+      if (playPromise && typeof playPromise.then === 'function') {
+        playPromise.catch(() => { /* autoplay might be blocked until user gesture */ });
+      }
+    } catch {
+      // swallow
+    }
+  }
 
   // Typed helper to safely coerce unknown realtime payloads for 'game.turn' events
   interface GameTurnPayload { nextTurnUserId?: string; incorrect?: boolean }
@@ -114,8 +193,8 @@ export default function GamePage() {
         if (turnPlayer) setTurnTeam(turnPlayer.team);
         else setTurnTeam('A');
         setLocalMode(false);
-      } catch (e: unknown) {
-        const msg = typeof e === 'object' && e && 'message' in e ? (e as { message?: string }).message : 'Failed loading game';
+      } catch (err: unknown) {
+        const msg = typeof err === 'object' && err && 'message' in err ? (err as { message?: string }).message : 'Failed loading game';
         setError(msg || 'Failed loading game');
       } finally {
         setLoading(false);
@@ -162,6 +241,8 @@ export default function GamePage() {
                 }
                 return { ...g, pieces: sanitized, players: nextPlayers, turnOfUserId: payload.nextTurnUserId || g.turnOfUserId };
               });
+              // Play move sound for any received move update
+              playMoveSound();
               // If players list changed, update local membership state
               if (payload.players && currentUserId) {
                 const stillMember = payload.players.some(p => p.userId === currentUserId);
@@ -236,8 +317,8 @@ export default function GamePage() {
           }
         });
         setGameChannelReady(true);
-      } catch (e: unknown) {
-        console.warn('Realtime subscribe failed', e);
+      } catch (err: unknown) {
+        console.warn('Realtime subscribe failed', err);
       }
     })();
     return () => {
@@ -282,8 +363,8 @@ export default function GamePage() {
     setTurnTeam('A');
     setLocalMode(false);
       setPersisted(!!data.persisted);
-    } catch (e: unknown) {
-      console.error(e);
+    } catch (err: unknown) {
+      console.error(err);
       function isAbortError(v: unknown): v is { name: string } {
         return !!v && typeof v === 'object' && 'name' in v && (v as { name?: unknown }).name === 'AbortError';
       }
@@ -291,8 +372,8 @@ export default function GamePage() {
         return !!v && typeof v === 'object' && 'message' in v && typeof (v as { message?: unknown }).message === 'string';
       }
       let message = 'Unknown error';
-      if (isAbortError(e)) message = 'Request timed out.';
-      else if (hasMessage(e)) message = e.message;
+      if (isAbortError(err)) message = 'Request timed out.';
+      else if (hasMessage(err)) message = err.message;
       setError(message);
       setGame(null);
     } finally {
@@ -318,7 +399,11 @@ export default function GamePage() {
           const data = await res.json().catch(()=>({}));
           setToast({ id: ++toastCounter.current, type: 'error', message: data.error || 'Move rejected' });
         }
-      } catch (e) {
+        else {
+          // Remote move accepted: play sound now (will also arrive via realtime, but play immediately for snappier UX)
+          playMoveSound();
+        }
+      } catch (_err) {
         setToast({ id: ++toastCounter.current, type: 'error', message: 'Network error' });
       }
       setPendingMove(null);
@@ -332,6 +417,8 @@ export default function GamePage() {
       tempResult = resolveCombatAndMove({ pieces: g.pieces, attackerId: pieceId, toX, toY, blackHoles: g.blackHoles });
       return { ...g, pieces: tempResult.pieces };
     });
+    // Local mode: play sound immediately after applying local move
+    playMoveSound();
     if (tempResult) {
       const evs = (tempResult as ResolveResult).events;
       setRecentEvents(evs);
@@ -481,19 +568,20 @@ export default function GamePage() {
             {!persisted && (
               <div className="text-xs text-amber-400">Ephemeral game (DB offline) – progress won&apos;t persist.</div>
             )}
-            <div className="scale-[0.9] sm:scale-100 md:scale-[1.1] lg:scale-[1.2] transition-transform">
-              <Board
-                categories={game.boardCategories}
-                pieces={game.pieces}
-                blackHoles={game.blackHoles}
-                selected={selected}
-                onSelect={(x,y)=> setSelected({x,y})}
-                activeTeam={turnTeam}
-                controllableTeam={membershipDenied ? null : myTeam}
-                lastMovedPieceId={lastMovedPieceId}
-                events={recentEvents}
-                interactive={!membershipDenied}
-                onRequestMove={async ({ pieceId, toX, toY, category }) => {
+            <div className="flex flex-col md:flex-row items-start justify-center gap-6 lg:gap-8 xl:gap-10 2xl:gap-12">
+              <div className="scale-[0.9] sm:scale-100 md:scale-[1.05] lg:scale-[1.12] xl:scale-[1.18] transition-transform origin-top md:mr-4 lg:mr-6 xl:mr-8">
+                <Board
+                  categories={game.boardCategories}
+                  pieces={game.pieces}
+                  blackHoles={game.blackHoles}
+                  selected={selected}
+                  onSelect={(x,y)=> setSelected({x,y})}
+                  activeTeam={turnTeam}
+                  controllableTeam={membershipDenied ? null : myTeam}
+                  lastMovedPieceId={lastMovedPieceId}
+                  events={recentEvents}
+                  interactive={!membershipDenied && !questionOpen}
+                  onRequestMove={async ({ pieceId, toX, toY, category }) => {
                   if (membershipDenied) return; // spectators cannot move
                   // prevent move attempts if game not yet persisted in DB
                   if (!localMode && persisted !== true) {
@@ -565,14 +653,22 @@ export default function GamePage() {
                     }
                     setQuestion({ id: qData.question._id, text: qData.question.text, choices: qData.question.choices });
                     setQuestionOpen(true);
-                  } catch (e) {
-                    console.error('Fetch/register question failed', e);
+                    setQuestionDeadline(Date.now() + 10_000); // 10 second window
+                  } catch (err) {
+                    console.error('Fetch/register question failed', err);
                     applyPendingMove(!localMode && !!game._id);
                   } finally {
                     setQuestionLoading(false);
                   }
-                }}
-              />
+                    }}
+                />
+              </div>
+              <div className="w-full md:w-[210px] lg:w-[220px] xl:w-[230px] flex flex-col gap-3 md:mt-0 mt-4 self-start">
+                <div className="rounded-lg border border-slate-600/60 bg-slate-800/40 backdrop-blur-sm p-3 md:p-4 shadow-inner max-h-[calc(100vh-220px)] overflow-auto field-legend scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-600/40">
+                  <h3 className="text-[11px] uppercase tracking-wide font-semibold text-slate-300 mb-2">Field Legend</h3>
+                  <CategoryLegend vertical />
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -596,6 +692,7 @@ export default function GamePage() {
       <QuestionModal
         open={questionOpen}
         question={question ? { text: question.text, choices: question.choices } : null}
+        remainingMs={questionDeadline ? Math.max(0, questionDeadline - Date.now()) : undefined}
         onAnswer={async (idx) => {
           const qid = question?.id;
           let correct = false;
@@ -643,8 +740,8 @@ export default function GamePage() {
                 }
                 setToast({ id: ++toastCounter.current, type: 'error', message: msg });
               }
-            } catch (e) {
-              console.warn('Attempt failed', e);
+            } catch (err) {
+              console.warn('Attempt failed', err);
               setToast({ id: ++toastCounter.current, type: 'error', message: 'Network error – try again.' });
             }
           } else if (qid) {
@@ -671,6 +768,7 @@ export default function GamePage() {
           setQuestionHistory(h => [...h, { qid, correct, category: pendingMove?.category || '' }]);
           setQuestionOpen(false);
           setQuestion(null);
+          setQuestionDeadline(null);
           // Auto clear recent events after animations (~1.3s)
           setTimeout(() => setRecentEvents(null), 1400);
           // Auto-hide toast
@@ -678,7 +776,6 @@ export default function GamePage() {
             setToast(cur => (cur && cur.id === toastCounter.current ? null : cur));
           }, 2800);
         }}
-        onClose={() => { setQuestionOpen(false); setPendingMove(null); }}
       />
       {game && !membershipDenied && currentUserId && game.turnOfUserId === currentUserId && (
         <div className="fixed top-2 left-2 z-40 select-none">

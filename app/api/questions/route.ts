@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const q = docs[0];
   // Hide correctIndex from client; provide separate validation endpoint (future)
   // Strip out correctIndex and serialize _id to string
-  const { correctIndex: _unusedCorrectIndex, _id, ...rest } = q as Question;
+  const { correctIndex: _correctIndex, _id, ...rest } = q as Question; // intentionally not returned
   const question = {
     _id: _id?.toString(),
     ...rest,

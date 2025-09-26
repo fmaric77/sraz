@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaFlag } from 'react-icons/fa';
+import Image from 'next/image';
 import { Piece } from '@/models/types';
 
 const levelGlyph: Record<number, string> = { 1: 'P', 2: 'N', 3: 'C' }; // fallback glyphs
@@ -8,6 +8,7 @@ interface PieceViewProps { piece: Piece; onDragStart?: (piece: Piece) => void; d
 
 const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, promoted, draggableOverride = true }) => {
   const imgEl = React.useRef<HTMLImageElement | null>(null);
+  const setImgRef = React.useCallback((el: HTMLImageElement | null) => { imgEl.current = el; }, []);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   function handleDragStart(e: React.DragEvent<HTMLDivElement>) {
     e.dataTransfer.setData('application/x-piece-id', piece.id);
@@ -52,10 +53,12 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
     >
       {piece.level === 1 && !piece.isFlag && (
         <>
-          <img
-            ref={imgEl}
+          <Image
+            ref={setImgRef}
             src="/images/pawn.png"
             alt={`Pawn ${piece.team}`}
+            width={96}
+            height={96}
             className={`w-full h-full object-contain pointer-events-none select-none ${piece.team === 'A' ? 'team-a-tint' : piece.team === 'B' ? 'team-b-tint' : piece.team === 'C' ? 'team-c-tint' : 'team-d-tint'}`}
             draggable={false}
             onError={(e) => {
@@ -68,22 +71,34 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
                 target.dataset.fallback = '2';
               }
             }}
+            unoptimized
           />
           <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
         </>
       )}
       {piece.isFlag && (
-        <div className={`w-full h-full flex items-center justify-center pointer-events-none select-none ${piece.team === 'A' ? 'text-blue-300' : piece.team === 'B' ? 'text-rose-300' : piece.team === 'C' ? 'text-emerald-300' : 'text-amber-300'}`}> 
-          <FaFlag className="w-8 h-8 md:w-10 md:h-10 drop-shadow flag-icon" />
-          <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
+        <div className="w-full h-full flex items-center justify-center pointer-events-none select-none relative">
+          <Image
+            ref={setImgRef}
+            src="/animations/1.gif"
+            alt={`Flag ${piece.team}`}
+            width={64}
+            height={64}
+            className={`w-9 h-9 md:w-11 md:h-11 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] flag-team-${piece.team.toLowerCase()}`}
+            draggable={false}
+            unoptimized
+          />
+          <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-85 bg-black/35 rounded px-0.5 leading-none">{piece.team}</span>
         </div>
       )}
   {piece.level === 2 && !piece.isFlag && (
         <>
-          <img
-            ref={imgEl}
+          <Image
+            ref={setImgRef}
             src="/images/knight.png"
             alt={`Knight ${piece.team}`}
+            width={96}
+            height={96}
             className={`w-full h-full object-contain pointer-events-none select-none ${piece.team === 'A' ? 'team-a-tint' : piece.team === 'B' ? 'team-b-tint' : piece.team === 'C' ? 'team-c-tint' : 'team-d-tint'}`}
             draggable={false}
             onError={(e) => {
@@ -96,16 +111,19 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
                 target.dataset.fallback = '2';
               }
             }}
+            unoptimized
           />
           <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
         </>
       )}
   {piece.level === 3 && !piece.isFlag && (
         <>
-          <img
-            ref={imgEl}
+          <Image
+            ref={setImgRef}
             src="/images/cavalry.png"
             alt={`Cavalry ${piece.team}`}
+            width={96}
+            height={96}
             className={`w-full h-full object-contain pointer-events-none select-none ${piece.team === 'A' ? 'team-a-tint' : piece.team === 'B' ? 'team-b-tint' : piece.team === 'C' ? 'team-c-tint' : 'team-d-tint'}`}
             draggable={false}
             onError={(e) => {
@@ -118,6 +136,7 @@ const PieceView: React.FC<PieceViewProps> = ({ piece, onDragStart, demoted, prom
                 target.dataset.fallback = '2';
               }
             }}
+            unoptimized
           />
           <span className="absolute bottom-0 right-0 text-[9px] font-black opacity-80">{piece.team}</span>
         </>

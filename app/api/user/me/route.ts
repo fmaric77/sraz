@@ -1,7 +1,7 @@
 import { auth } from '@/auth';
 import { findUserByEmail } from '@/lib/users';
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await auth();
   if (!session?.user?.email) {
     return new Response(JSON.stringify({ user: null }), { status: 200 });

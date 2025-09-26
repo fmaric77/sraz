@@ -33,6 +33,68 @@ body {
   --sq-dark-bg: radial-gradient(circle at 65% 65%, rgba(6,78,59,0.95), rgba(4,120,87,0.9) 45%, rgba(2,44,34,0.85) 100%);
   --sq-light-bg-hover: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%);
   --sq-dark-bg-hover: radial-gradient(circle at 65% 65%, rgba(6,95,70,0.95), rgba(5,150,105,0.92) 50%, rgba(2,60,45,0.9) 100%);
+
+  /* Category color variables (base palette) */
+  /* Increased saturation / contrast versions */
+  --cat-literature: linear-gradient(135deg, #fff5ec 0%, #e4b180 45%, #c77935 100%);
+  --cat-culture: linear-gradient(135deg, #fff0f3 0%, #ff6b88 45%, #dc1c3f 100%);
+  --cat-general-knowledge: linear-gradient(135deg, #edffe5 0%, #7ddf5f 45%, #34a014 100%);
+  --cat-history: linear-gradient(135deg, #fff6df 0%, #ffbe4d 45%, #d78200 100%);
+  --cat-nature: linear-gradient(135deg, #e6fff2 0%, #58e5a2 45%, #119c5a 100%);
+  --cat-sport: linear-gradient(135deg, #e6f5ff 0%, #4fb4ff 45%, #006bbd 100%);
+  --cat-geography: linear-gradient(135deg, #e3fbff 0%, #40d5f7 45%, #0487a8 100%);
+  --cat-science: linear-gradient(135deg, #f6ebff 0%, #b980ff 45%, #6a21c2 100%);
+  --cat-random: linear-gradient(135deg, #f3f6fa 0%, #9daabb 45%, #4c5867 100%);
+
+  /* Hover variants (slightly brighter / shifted) */
+  --cat-literature-hover: linear-gradient(135deg, #fffaf4 0%, #efc59a 45%, #d18642 100%);
+  --cat-culture-hover: linear-gradient(135deg, #fff4f6 0%, #ff7b96 45%, #e12648 100%);
+  --cat-general-knowledge-hover: linear-gradient(135deg, #f2ffe9 0%, #8be86c 45%, #39ac18 100%);
+  --cat-history-hover: linear-gradient(135deg, #fff9e6 0%, #ffc558 45%, #e28b06 100%);
+  --cat-nature-hover: linear-gradient(135deg, #ecfff5 0%, #62f0ac 45%, #13a962 100%);
+  --cat-sport-hover: linear-gradient(135deg, #edf7ff 0%, #5ac0ff 45%, #0078cd 100%);
+  --cat-geography-hover: linear-gradient(135deg, #e9fcff 0%, #4ae0ff 45%, #0793b6 100%);
+  --cat-science-hover: linear-gradient(135deg, #fbf1ff 0%, #c28dff 45%, #7629ce 100%);
+  --cat-random-hover: linear-gradient(135deg, #f6f9fc 0%, #a8b5c7 45%, #566372 100%);
+.cat-literature,.cat-culture,.cat-general-knowledge,.cat-history,.cat-nature,.cat-sport,.cat-geography,.cat-science,.cat-random {
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4), 0 0 6px -1px rgba(0,0,0,0.35);
+  background-blend-mode: overlay, normal;
+  position: relative;
+  overflow: hidden;
+}
+.cat-literature:hover,.cat-culture:hover,.cat-general-knowledge:hover,.cat-history:hover,.cat-nature:hover,.cat-sport:hover,.cat-geography:hover,.cat-science:hover,.cat-random:hover {
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.45), 0 0 10px -1px rgba(0,0,0,0.4);
+}
+
+/* Subtle one-pass shimmer on hover (pseudo-element) */
+.cat-literature:before,.cat-culture:before,.cat-general-knowledge:before,.cat-history:before,.cat-nature:before,.cat-sport:before,.cat-geography:before,.cat-science:before,.cat-random:before {
+  content:"";
+  position:absolute; inset:0;
+  background: linear-gradient(110deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.28) 45%, rgba(255,255,255,0) 70%);
+  transform: translateX(-130%);
+  opacity:0;
+  pointer-events:none;
+  mix-blend-mode: screen;
+}
+.cat-literature:hover:before,.cat-culture:hover:before,.cat-general-knowledge:hover:before,.cat-history:hover:before,.cat-nature:hover:before,.cat-sport:hover:before,.cat-geography:hover:before,.cat-science:hover:before,.cat-random:hover:before {
+  animation: sq-shimmer 1.15s ease forwards;
+  opacity:1;
+}
+
+@keyframes sq-shimmer {
+  0% { transform: translateX(-130%); opacity:0; }
+  15% { opacity:1; }
+  55% { transform: translateX(35%); }
+  75% { opacity:1; }
+  100% { transform: translateX(130%); opacity:0; }
+}
+
+/* Team-specific flag color filters (applied to animated GIF). Adjust hue-rotate values as needed to match pawn tints */
+.flag-team-a { filter: hue-rotate(195deg) saturate(2.2) brightness(1.05); }
+.flag-team-b { filter: hue-rotate(325deg) saturate(2.2) brightness(1.05); }
+.flag-team-c { filter: hue-rotate(105deg) saturate(2.0) brightness(0.95); }
+.flag-team-d { filter: hue-rotate(40deg)  saturate(2.1) brightness(1.05); }
+
 }
 
 .skin-emerald {
@@ -101,10 +163,31 @@ body {
 .team-d-tint { filter: brightness(0) saturate(100%) invert(14%) sepia(93%) saturate(7475%) hue-rotate(2deg) brightness(94%) contrast(105%); }
 
 /* Board square styling */
+/* Legacy classes retained (may remove later) */
 .sq-light { background: var(--sq-light-bg); }
 .sq-dark { background: var(--sq-dark-bg); }
 .sq-light:hover { background: var(--sq-light-bg-hover); }
 .sq-dark:hover { background: var(--sq-dark-bg-hover); }
+
+/* Category square classes (generated in Square.tsx via categoryToClass) */
+.cat-literature { background: var(--cat-literature); }
+.cat-literature:hover { background: var(--cat-literature-hover); }
+.cat-culture { background: var(--cat-culture); }
+.cat-culture:hover { background: var(--cat-culture-hover); }
+.cat-general-knowledge { background: var(--cat-general-knowledge); }
+.cat-general-knowledge:hover { background: var(--cat-general-knowledge-hover); }
+.cat-history { background: var(--cat-history); }
+.cat-history:hover { background: var(--cat-history-hover); }
+.cat-nature { background: var(--cat-nature); }
+.cat-nature:hover { background: var(--cat-nature-hover); }
+.cat-sport { background: var(--cat-sport); }
+.cat-sport:hover { background: var(--cat-sport-hover); }
+.cat-geography { background: var(--cat-geography); }
+.cat-geography:hover { background: var(--cat-geography-hover); }
+.cat-science { background: var(--cat-science); }
+.cat-science:hover { background: var(--cat-science-hover); }
+.cat-random { background: var(--cat-random); }
+.cat-random:hover { background: var(--cat-random-hover); }
 .sq-selected { outline: 3px solid rgba(250,204,21,0.85); outline-offset: -2px; }
 .sq-droppable { box-shadow: 0 0 0 3px rgba(129,140,248,0.65) inset, 0 0 10px 2px rgba(99,102,241,0.55); }
 
@@ -124,6 +207,11 @@ body {
 
 /* Last move highlight outline variant */
 .last-move-ring { box-shadow: 0 0 0 3px rgba(34,211,238,0.7), 0 0 10px 3px rgba(34,211,238,0.4); border-radius: 9999px; }
+
+/* Black hole GIF white background removal: use multiply blend to ignore white, and slight contrast to emphasize core */
+.blackhole-gif { mix-blend-mode: multiply; background: transparent; }
+/* Fallback approach: if image still shows halo, uncomment next line to threshold whites (may darken edges) */
+/* .blackhole-gif { filter: brightness(0.85) contrast(1.15); } */
 
 /* Responsive board sizing */
 :root { --sq: 42px; --board-vpad: 140px; /* adjusted vertical padding estimate */ --board-safe: 8px; }

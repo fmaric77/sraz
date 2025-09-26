@@ -1,25 +1,54 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface QuestionModalProps {
   open: boolean;
   question?: { text: string; choices: string[] } | null;
-  remainingMs?: number;
+  remainingMs?: number; // milliseconds left (client-side)
   onAnswer?: (idx: number) => void;
-  onClose?: () => void;
 }
 
-const QuestionModal: React.FC<QuestionModalProps> = ({ open, question, remainingMs, onAnswer, onClose }) => {
+const QuestionModal: React.FC<QuestionModalProps> = ({ open, question, remainingMs, onAnswer }) => {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const firstBtnRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    const t = setTimeout(()=> firstBtnRef.current?.focus(), 30);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+      const root = rootRef.current; if (!root) return;
+      const focusables = Array.from(root.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])'));
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length-1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => { clearTimeout(t); document.removeEventListener('keydown', handleKey); prev?.focus?.(); };
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 backdrop-blur-sm bg-black/60">
-      <div className="w-full max-w-lg rounded-xl shadow-2xl border border-slate-700 bg-gradient-to-br from-slate-850 via-slate-800 to-slate-900 text-slate-100 p-5 md:p-6 space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 backdrop-blur-sm bg-black/60" role="dialog" aria-modal="true">
+      <div ref={rootRef} className="w-full max-w-lg rounded-xl shadow-2xl border border-slate-700 bg-gradient-to-br from-slate-850 via-slate-800 to-slate-900 text-slate-100 p-5 md:p-6 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <h2 className="text-lg md:text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-cyan-300 to-teal-300 drop-shadow">Question</h2>
-          <button
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-slate-300 hover:text-white hover:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 text-sm"
-            aria-label="Close question dialog"
-          >×</button>
+          {remainingMs !== undefined && (
+            <div className="flex items-center gap-1">
+              <div className="h-1.5 w-24 rounded bg-slate-700 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-rose-400 via-amber-300 to-emerald-400 transition-[width] duration-200"
+                  style={{ width: Math.max(0, Math.min(100, (remainingMs/10000)*100)) + '%'}}
+                />
+              </div>
+              <span className="text-xs font-mono text-slate-400 tabular-nums w-6 text-right">
+                {Math.max(0, Math.ceil(remainingMs/1000))}s
+              </span>
+            </div>
+          )}
         </div>
         <p className="text-sm md:text-base leading-relaxed font-medium text-slate-200">
           {question?.text}
@@ -30,6 +59,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({ open, question, remaining
             return (
               <button
                 key={i}
+                ref={i===0 ? firstBtnRef : undefined}
                 onClick={() => onAnswer?.(i)}
                 className="group relative w-full text-left rounded-lg border border-slate-600/60 bg-slate-800/60 backdrop-blur hover:border-cyan-400/70 hover:bg-slate-700/70 focus:outline-none focus:ring-2 focus:ring-cyan-400/60 transition-colors px-3 py-2 flex items-start gap-3"
               >

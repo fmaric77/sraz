@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
     if (game.pendingQuestion.questionId !== questionId || game.pendingQuestion.pieceId !== pieceId || game.pendingQuestion.toX !== toX || game.pendingQuestion.toY !== toY) {
       return NextResponse.json({ error: 'MISMATCH_PENDING' }, { status: 409 });
     }
-    // TTL check (e.g., 45s)
+    // TTL check (12s server authoritative; client shows 10s) small buffer for latency
+    const PENDING_TTL_MS = 12_000;
     const createdAt = new Date(game.pendingQuestion.requestedAt).getTime();
-    if (Date.now() - createdAt > 45_000) {
+    if (Date.now() - createdAt > PENDING_TTL_MS) {
       // Expire and clear
       const gamesCol = await getCollection<Game>('games');
       await gamesCol.updateOne({ _id: id }, { $set: { pendingQuestion: null } });

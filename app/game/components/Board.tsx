@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Piece, Team } from '@/models/types';
 import { BOARD_SIZE } from '@/lib/board';
 import Square from './Square';
@@ -78,16 +79,18 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
                 {piece.id === lastMovedPieceId && (
                   <div className="pointer-events-none absolute inset-0 animate-pulse last-move-ring" />
                 )}
-                {piece.isFlag && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-yellow-400/90 ring-2 ring-amber-600 shadow flag-icon animate-pulse" title="Flag" />
-                  </div>
-                )}
+                {/* Flag is rendered inside PieceView now */}
                 {isBlackHole && !piece && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/90 shadow-inner ring-2 ring-purple-600 animate-pulse relative">
-                      <div className="absolute inset-0 rounded-full bg-purple-700/30 blur-sm animate-pulse-slow" />
-                    </div>
+                    <Image
+                      src="/animations/blackhole.gif"
+                      alt="Black Hole"
+                      width={56}
+                      height={56}
+                      className="blackhole-gif w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-[0_0_6px_rgba(120,65,200,0.6)] opacity-90"
+                      draggable={false}
+                      unoptimized
+                    />
                   </div>
                 )}
                 <PieceView piece={piece} demoted={demotedIds.has(piece.id)} promoted={promotedIds.has(piece.id)} draggableOverride={interactive} onDragStart={(p: Piece)=> {
@@ -100,9 +103,15 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
             )}
             {!piece && isBlackHole && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/90 shadow-inner ring-2 ring-purple-600 animate-pulse relative">
-                  <div className="absolute inset-0 rounded-full bg-purple-700/30 blur-sm animate-pulse-slow" />
-                </div>
+                <Image
+                  src="/animations/blackhole.gif"
+                  alt="Black Hole"
+                  width={56}
+                  height={56}
+                  className="blackhole-gif w-12 h-12 md:w-14 md:h-14 object-contain drop-shadow-[0_0_6px_rgba(120,65,200,0.6)] opacity-90"
+                  draggable={false}
+                  unoptimized
+                />
               </div>
             )}
           </Square>
