@@ -27,6 +27,7 @@ body {
 
 /* Board skin variants via CSS variables
    Using variables ensures inner previews override outer (global) skins correctly. */
+/* Root design tokens & CSS variables */
 :root {
   /* defaults (emerald-like) */
   --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(240,252,247,0.85) 40%, rgba(214,247,236,0.8) 100%);
@@ -56,6 +57,9 @@ body {
   --cat-geography-hover: linear-gradient(135deg, #e9fcff 0%, #4ae0ff 45%, #0793b6 100%);
   --cat-science-hover: linear-gradient(135deg, #fbf1ff 0%, #c28dff 45%, #7629ce 100%);
   --cat-random-hover: linear-gradient(135deg, #f6f9fc 0%, #a8b5c7 45%, #566372 100%);
+}
+
+/* Category base styling (separate from :root so production CSS isn't invalid) */
 .cat-literature,.cat-culture,.cat-general-knowledge,.cat-history,.cat-nature,.cat-sport,.cat-geography,.cat-science,.cat-random {
   box-shadow: inset 0 0 0 2px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4), 0 0 6px -1px rgba(0,0,0,0.35);
   background-blend-mode: overlay, normal;
@@ -89,13 +93,11 @@ body {
   100% { transform: translateX(130%); opacity:0; }
 }
 
-/* Team-specific flag color filters (applied to animated GIF). Adjust hue-rotate values as needed to match pawn tints */
+/* Team-specific flag color filters */
 .flag-team-a { filter: hue-rotate(195deg) saturate(2.2) brightness(1.05); }
 .flag-team-b { filter: hue-rotate(325deg) saturate(2.2) brightness(1.05); }
 .flag-team-c { filter: hue-rotate(105deg) saturate(2.0) brightness(0.95); }
 .flag-team-d { filter: hue-rotate(40deg)  saturate(2.1) brightness(1.05); }
-
-}
 
 .skin-emerald {
   --sq-light-bg: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(236,252,247,0.9) 40%, rgba(214,247,236,0.95) 100%);
