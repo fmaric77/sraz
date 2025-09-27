@@ -10,9 +10,10 @@ interface FinishParams {
   updatedPieces: Game['pieces'];
   winnerTeam: string | null;
   flagCapture: boolean;
+  extraHistoryEntry?: { turn: number; questionId: string; correct: boolean; category: string; userId?: string };
 }
 
-export async function finalizeGameAndBroadcast({ game, gameId, updatedPieces, winnerTeam, flagCapture }: FinishParams) {
+export async function finalizeGameAndBroadcast({ game, gameId, updatedPieces, winnerTeam, flagCapture, extraHistoryEntry }: FinishParams) {
   const gamesCol = await getCollection<Game>('games');
   const allPlayerIds = game.players.map(p=>p.userId);
   const usersCol = await getCollection<User>('users');
@@ -35,7 +36,29 @@ export async function finalizeGameAndBroadcast({ game, gameId, updatedPieces, wi
     winnerUserId: game.players.find(p=> p.team === winnerTeam!)?.userId,
     rated
   });
-  await gamesCol.updateOne({ _id: gameId }, { $set: { pieces: updatedPieces, status: 'finished', pendingQuestion: null } });
-  await publishGameEvent(gameId, 'game.finished', { winnerTeam, pieces: updatedPieces, rated, eloResults, flagCapture });
+  // Append extra history entry if provided (so final question attempt is not lost on immediate finishes)
+  if (extraHistoryEntry) {
+    await gamesCol.updateOne({ _id: gameId }, { $set: { pieces: updatedPieces, status: 'finished', pendingQuestion: null }, $push: { questionHistory: extraHistoryEntry } });
+  } else {
+    await gamesCol.updateOne({ _id: gameId }, { $set: { pieces: updatedPieces, status: 'finished', pendingQuestion: null } });
+  }
+  // Compose stats (per-player accuracy) from existing history plus potential extra entry
+  const historySource = [...game.questionHistory];
+  if (extraHistoryEntry) historySource.push(extraHistoryEntry);
+  const perMap: Record<string, { attempts: number; correct: number; team: string }> = {};
+  historySource.forEach(h => {
+    if (!h.userId) return;
+    if (!perMap[h.userId]) {
+      const team = game.players.find(p=>p.userId===h.userId)?.team || '?';
+      perMap[h.userId] = { attempts: 0, correct: 0, team };
+    }
+    perMap[h.userId].attempts += 1;
+    if (h.correct) perMap[h.userId].correct += 1;
+  });
+  const stats = Object.entries(perMap).map(([userId, v]) => {
+    const doc = userDocs.find(d=> d._id === userId);
+    return { userId, team: v.team, attempts: v.attempts, correct: v.correct, accuracy: v.attempts ? v.correct / v.attempts : 0, name: doc?.name };
+  });
+  await publishGameEvent(gameId, 'game.finished', { winnerTeam, pieces: updatedPieces, rated, eloResults, flagCapture, stats });
   return { rated, eloResults };
 }

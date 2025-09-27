@@ -53,7 +53,7 @@ const QuestionModal: React.FC<QuestionModalProps> = ({ open, question, remaining
         <p className="text-sm md:text-base leading-relaxed font-medium text-slate-200">
           {question?.text}
         </p>
-        <div className="grid gap-3">
+  <div className="grid gap-3">{/* Choices already shuffled upstream; labels A,B,C,D are positional */}
           {question?.choices.map((c, i) => {
             const label = String.fromCharCode(65 + i);
             return (

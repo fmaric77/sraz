@@ -16,11 +16,26 @@ export default function Home() {
   const { data: session } = useSession();
   const { name, email, userId } = useCurrentUser();
   const loggedIn = !!session?.user;
+  const [statsModal, setStatsModal] = React.useState<{ stats: { userId: string; team?: string; attempts: number; correct: number; accuracy: number; name?: string; preElo?: number; postElo?: number; delta?: number }[] } | null>(null);
+  // Decode stats from query param
+  React.useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const s = url.searchParams.get('stats');
+      if (s) {
+        const json = JSON.parse(decodeURIComponent(escape(atob(s))));
+        if (json?.stats) setStatsModal({ stats: json.stats });
+        // clean URL
+        url.searchParams.delete('stats');
+        window.history.replaceState({}, '', url.pathname + url.search);
+      }
+    } catch {}
+  }, []);
   return (
   <div className="min-h-screen flex flex-col items-center">
       <header className="w-full px-6 py-4 grid grid-cols-3 items-center">
   <h1 className="text-xl font-bold">Mind Siege</h1>
-        <div className="flex justify-center">
+        <div className="flex justify-center gap-4 flex-wrap">
           <button
             onClick={async () => {
               interface CreateLobbyPayload { maxPlayers: number; hostUserId?: string }
@@ -45,6 +60,7 @@ export default function Home() {
           >
             {loggedIn ? 'Create Lobby' : 'Play (Create Lobby)'}
           </button>
+          <RandomMatchButton loggedIn={loggedIn} userId={userId || null} />
         </div>
         <div className="flex gap-3 justify-end items-center relative">
           {loggedIn ? (
@@ -62,14 +78,46 @@ export default function Home() {
       </header>
       <main className="flex-1 flex flex-col items-center justify-center w-full px-4">
         <div className="w-full flex flex-col items-center">
-          <Board
-            categories={demo.boardCategories}
-            pieces={demo.pieces}
-            blackHoles={demo.blackHoles}
-            interactive={false}
-          />
+          <div className="w-full max-w-[340px] xs:max-w-[360px] sm:max-w-[400px] md:max-w-[440px] lg:max-w-[480px] transition-all">
+            <Board
+              categories={demo.boardCategories}
+              pieces={demo.pieces}
+              blackHoles={demo.blackHoles}
+              interactive={false}
+            />
+          </div>
         </div>
       </main>
+      {statsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900/95 p-5 space-y-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-100">Match Performance</h2>
+            <div className="space-y-2 max-h-[50vh] overflow-auto pr-1 soft-scrollbars">
+              {(() => {
+                const totalCorrect = statsModal.stats.reduce((sum, s) => sum + s.correct, 0) || 1;
+                return statsModal.stats.map(s => {
+                  const share = totalCorrect ? (s.correct / totalCorrect) : 0;
+                  return (
+                <div key={s.userId} className="flex items-center justify-between text-sm bg-slate-800/50 rounded px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-slate-200">{(s.name || s.userId.slice(0,8))}{s.team ? ` (Team ${s.team})` : ''}</span>
+                    <span className="text-[11px] text-slate-400">{s.correct}/{s.attempts} correct • {(share*100).toFixed(1)}% of team total{s.delta !== undefined ? ` • ELO ${s.delta >=0 ? '+' : ''}${s.delta}` : ''}</span>
+                  </div>
+                  <span className="text-emerald-400 font-semibold tabular-nums text-sm">{(s.accuracy*100).toFixed(1)}%</span>
+                </div>
+                  );
+                });
+              })()}
+              {statsModal.stats.length === 0 && (
+                <div className="text-xs text-slate-400">No answer data recorded.</div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setStatsModal(null)} className="px-4 py-2 text-sm rounded bg-slate-700 hover:bg-slate-600 text-slate-200">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -112,6 +160,19 @@ function LinkItem({ href, label }: { href: string; label: string }) {
     <Link href={href} className="block px-3 py-2 hover:bg-slate-700/60 text-slate-200">
       {label}
     </Link>
+  );
+}
+
+// Random matchmaking button component
+
+function RandomMatchButton({ loggedIn, userId }: { loggedIn: boolean; userId: string | null }) {
+  return (
+    <button
+      onClick={() => { window.location.href = '/queue'; }}
+      className="px-6 py-3 rounded text-white font-medium shadow-md transition bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700"
+    >
+      {loggedIn ? 'Random Game' : 'Random Game (Anon)'}
+    </button>
   );
 }
 

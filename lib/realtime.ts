@@ -12,7 +12,8 @@ export function getAblyRest(): Ably.Rest | null {
 }
 
 export type LobbyEventType = 'player.joined' | 'player.left' | 'lobby.started';
-export type GameEventType = 'game.move' | 'game.finished' | 'game.turn';
+export type GameEventType = 'game.move' | 'game.finished' | 'game.turn'; // 'game.move' also used for player.pruned variant payloads
+export type MatchmakingEventType = 'mm.update' | 'mm.started';
 
 export interface LobbyEventPayload { [key: string]: unknown }
 export async function publishLobbyEvent(lobbyCode: string, type: LobbyEventType, data: LobbyEventPayload) {
@@ -27,5 +28,13 @@ export async function publishGameEvent(gameId: string, type: GameEventType, data
   const r = getAblyRest();
   if (!r) return;
   const channel = r.channels.get(`game-${gameId}`);
+  await channel.publish(type, { type, data, ts: Date.now() });
+}
+
+export interface MatchmakingEventPayload { [key: string]: unknown }
+export async function publishMatchmakingEvent(type: MatchmakingEventType, data: MatchmakingEventPayload) {
+  const r = getAblyRest();
+  if (!r) return;
+  const channel = r.channels.get('matchmaking-global');
   await channel.publish(type, { type, data, ts: Date.now() });
 }

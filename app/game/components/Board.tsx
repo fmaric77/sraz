@@ -34,7 +34,7 @@ const Board: React.FC<BoardProps> = ({ categories, pieces, onSelect, selected, o
   const bhSet = new Set(blackHoles?.map(b => `${b.x},${b.y}`));
 
   return (
-  <div className="board-shell board-responsive mx-auto overflow-hidden overflow-x-auto max-w-full">
+  <div className="board-shell mx-auto overflow-hidden max-w-full">
     <div className={`board-frame inline-grid rounded overflow-hidden`} style={{ gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0,1fr))` }}>
   {categories.slice(0, BOARD_SIZE).map((row, y) => row.slice(0, BOARD_SIZE).map((cat, x) => {
   const piece = pieces.find(p => p.alive && p.x === x && p.y === y);

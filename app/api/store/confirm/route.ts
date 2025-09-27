@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
     return new Response(JSON.stringify({ error: 'NOT_PAID' }), { status: 400 });
-  } catch (_err) {
+  } catch {
     return new Response(JSON.stringify({ error: 'LOOKUP_FAILED' }), { status: 500 });
   }
 }

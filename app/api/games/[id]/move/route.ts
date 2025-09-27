@@ -28,6 +28,15 @@ export async function POST(req: NextRequest) {
   const gamesCol = await getCollection<Game>('games');
   const game = await gamesCol.findOne({ _id: id });
   if (!game) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
+  if (game.pruneLocks && game.pruneLocks.length) {
+    const NOW = Date.now();
+    const TTL = 4000;
+    const filtered = game.pruneLocks.filter(l => NOW - new Date(l.ts).getTime() < TTL);
+    if (filtered.length !== game.pruneLocks.length) {
+      await gamesCol.updateOne({ _id: id }, { $set: { pruneLocks: filtered } });
+  game.pruneLocks = filtered;
+    }
+  }
   // Guard: cannot move if a pendingQuestion exists (must answer via attempt flow)
   if (game.pendingQuestion) {
     // TTL auto-clear if expired (12s authoritative)

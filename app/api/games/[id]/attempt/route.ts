@@ -27,6 +27,16 @@ export async function POST(req: NextRequest) {
   const questionsCol = await getCollection<WithId<Question>>('questions');
     const game = await gamesCol.findOne({ _id: id });
     if (!game) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
+    // Purge stale pruneLocks (best-effort)
+    if (game.pruneLocks && game.pruneLocks.length) {
+      const NOW = Date.now();
+      const TTL = 4000;
+      const filtered = game.pruneLocks.filter(l => NOW - new Date(l.ts).getTime() < TTL);
+      if (filtered.length !== game.pruneLocks.length) {
+        await gamesCol.updateOne({ _id: id }, { $set: { pruneLocks: filtered } });
+          game.pruneLocks = filtered;
+      }
+    }
     if (game.status === 'finished') return NextResponse.json({ error: 'GAME_FINISHED' }, { status: 409 });
     if (game.turnOfUserId !== userId) return NextResponse.json({ error: 'NOT_YOUR_TURN' }, { status: 409 });
     if (!game.players.some(p => p.userId === userId)) return NextResponse.json({ error: 'NOT_IN_GAME' }, { status: 403 });
@@ -63,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // Record history entry
     const turnIndex = game.questionHistory.length + 1;
-  const historyEntry = { turn: turnIndex, questionId, correct, category: pendingCat === 'Random' ? (boardCat || 'Random') : pendingCat };
+  const historyEntry = { turn: turnIndex, questionId, correct, category: pendingCat === 'Random' ? (boardCat || 'Random') : pendingCat, userId };
 
     if (!correct) {
       // Advance turn only

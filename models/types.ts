@@ -28,6 +28,7 @@ export interface GameQuestionHistoryEntry {
   questionId: string;
   correct: boolean;
   category: string; // stored category (resolved if square was Random)
+  userId?: string; // player who attempted (added for per-player accuracy)
 }
 
 export interface Game {
@@ -48,6 +49,10 @@ export interface Game {
     category: string;
     requestedAt: Date;
   } | null;
+  // Optional per-player access tokens (for future secured fetches)
+  accessTokens?: { userId: string; token: string }[];
+  // Recent prune debounce locks (ephemeral; cleaned opportunistically)
+  pruneLocks?: { key: string; ts: Date }[];
 }
 
 export interface LobbyPlayerRef {
