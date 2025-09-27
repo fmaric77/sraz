@@ -6,6 +6,7 @@ interface CurrentUserContextValue {
   userId: string | null;
   email: string | null;
   name: string | null;
+  language: string | null;
   elo: number | null;
   purchasedSkins: string[];
   selectedBoardSkin: string | null;
@@ -26,6 +27,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
+  const [language, setLanguage] = useState<string | null>(null);
   const [elo, setElo] = useState<number | null>(null);
   const [purchasedSkins, setPurchasedSkins] = useState<string[]>([]);
   const [selectedBoardSkin, setSelectedBoardSkinState] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
         setUserId(data.user.id || null);
         setEmail(data.user.email || null);
         setName(data.user.name || null);
+        setLanguage(data.user.language || null);
         setElo(data.user.elo ?? null);
         setPurchasedSkins(data.user.purchasedSkins || []);
         setSelectedBoardSkinState(data.user.selectedBoardSkin || null);
@@ -73,7 +76,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <CurrentUserContext.Provider value={{ userId, email, name, elo, purchasedSkins, selectedBoardSkin, setOptimisticName, refresh }}>
+    <CurrentUserContext.Provider value={{ userId, email, name, language, elo, purchasedSkins, selectedBoardSkin, setOptimisticName, refresh }}>
       {children}
     </CurrentUserContext.Provider>
   );

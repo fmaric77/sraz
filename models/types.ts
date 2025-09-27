@@ -110,6 +110,7 @@ export interface User {
   losses: number;
   draws: number; // reserved
   name?: string; // display name
+  language?: string; // preferred language for UI and questions (ISO code, e.g. 'en', 'hr')
   purchasedSkins?: string[]; // owned cosmetic skin ids
   selectedBoardSkin?: string; // active board skin id
 }

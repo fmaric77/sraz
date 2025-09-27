@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthModalProvider } from "./components/AuthModalProvider";
 import { AuthModal } from "./components/AuthModal";
 import { CurrentUserProvider } from "./components/CurrentUserProvider";
+import { TranslationProvider } from "./components/TranslationProvider";
 import { SessionProvider } from "next-auth/react";
 import { SkinClass } from "@/app/skin-class";
 
@@ -38,10 +39,12 @@ export default function RootLayout({
         <SessionProvider>
           <AuthModalProvider>
             <CurrentUserProvider>
-              <SkinClass>
-                {children}
-              </SkinClass>
-              <AuthModal />
+              <TranslationProvider>
+                <SkinClass>
+                  {children}
+                </SkinClass>
+                <AuthModal />
+              </TranslationProvider>
             </CurrentUserProvider>
           </AuthModalProvider>
         </SessionProvider>

@@ -12,6 +12,7 @@ export async function GET() {
     id: user._id,
     email: user.email,
     name: user.name,
+    language: user.language,
     elo: user.elo,
     wins: user.wins,
     losses: user.losses,

@@ -22,6 +22,7 @@ export async function createUser(email: string, password: string): Promise<User>
     losses: 0,
     draws: 0,
     name: email.split('@')[0],
+    language: 'en', // default language
   };
   const result = await col.insertOne(user as Omit<User, '_id'>);
   user._id = result.insertedId.toString();
@@ -80,5 +81,13 @@ export async function setSelectedBoardSkinIfEmpty(userId: string, skinId: string
   const res = await col.updateOne({ _id: userId, ...emptySelector } as unknown as Document, { $set: { selectedBoardSkin: skinId } } as UpdateFilter<User>);
   if (!res.matchedCount && ObjectId.isValid(userId)) {
     await col.updateOne({ _id: new ObjectId(userId), ...emptySelector } as unknown as Document, { $set: { selectedBoardSkin: skinId } } as UpdateFilter<User>);
+  }
+}
+
+export async function updateUserLanguage(userId: string, language: string) {
+  const col = await getCollection<User>('users');
+  const res = await col.updateOne({ _id: userId } as unknown as Document, { $set: { language } } as UpdateFilter<User>);
+  if (!res.matchedCount && ObjectId.isValid(userId)) {
+    await col.updateOne({ _id: new ObjectId(userId) } as unknown as Document, { $set: { language } } as UpdateFilter<User>);
   }
 }

@@ -1,8 +1,3 @@
-// Simple translation endpoint stub.
-// Replace with real translation provider (e.g. OpenAI, DeepL, Google) as needed.
-// Accepts POST with JSON: { text: string, targetLang?: string }
-// Responds with a naive "translation" (echo) so frontend contract is unblocked.
-
 import { NextRequest } from 'next/server';
 
 interface TranslateRequestBody {
@@ -15,7 +10,20 @@ interface TranslateResponseBody {
 	sourceLang: string;
 	targetLang: string;
 	original: string;
-	placeholder: true;
+}
+
+async function translateText(text: string, targetLang: string) {
+    if (!text.trim()) return text;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data[0].map((x: string[]) => x[0]).join('');
+    } catch (error) {
+        console.error('Translation error:', error);
+        return text;
+    }
 }
 
 export async function POST(req: NextRequest) {
@@ -27,15 +35,14 @@ export async function POST(req: NextRequest) {
 		}
 		const targetLang = (body?.targetLang || 'en').toLowerCase();
 
-		// TODO: Plug in real translation call here.
-		// For now we just echo. Mark response with placeholder=true so
-		// client can detect stubbed translation.
+		// Use Google Translate API
+		const translated = await translateText(text, targetLang);
+
 		const res: TranslateResponseBody = {
-			translated: text,
+			translated,
 			sourceLang: 'auto',
 			targetLang,
 			original: text,
-			placeholder: true,
 		};
 		return Response.json(res, { status: 200 });
 	} catch (err) {

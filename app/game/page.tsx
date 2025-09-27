@@ -8,6 +8,8 @@ import { Avatar } from '@/app/components/Avatar';
 import { fetchPublicUsers } from '@/lib/userPublicCache';
 import { createLocalGame } from '@/lib/board';
 import { resolveCombatAndMove, CombatEvent, ResolveResult } from '@/lib/combat';
+import { useTranslation } from '@/app/components/TranslationProvider';
+import { useCurrentUser } from '@/app/components/CurrentUserProvider';
 
 interface GameStateLite {
   _id?: string;
@@ -19,7 +21,10 @@ interface GameStateLite {
 }
 
 export default function GamePage() {
+  const { language: ctxLanguage } = useCurrentUser();
+  const { t } = useTranslation();
   const [game, setGame] = useState<GameStateLite | null>(null);
+  const [translatedTexts, setTranslatedTexts] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<{x:number;y:number}|null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,13 +69,13 @@ export default function GamePage() {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, pieceId, toX, toY, questionId: qid, answerIndex: -1 })
               });
               // Toast will appear from turn event handler; fallback toast here:
-              setToast(t => t || { id: ++toastCounter.current, type: 'error', message: 'Time up – Turn Lost.' });
+              setToast(t => t || { id: ++toastCounter.current, type: 'error', message: translatedTexts['Time up – Turn Lost.'] || 'Time up – Turn Lost.' });
             } catch {
-              setToast({ id: ++toastCounter.current, type: 'error', message: 'Time up – Turn Lost.' });
+              setToast({ id: ++toastCounter.current, type: 'error', message: translatedTexts['Time up – Turn Lost.'] || 'Time up – Turn Lost.' });
             }
           } else {
             // Local mode: just mark incorrect and advance
-            setToast({ id: ++toastCounter.current, type: 'error', message: 'Time up – Turn Lost.' });
+            setToast({ id: ++toastCounter.current, type: 'error', message: translatedTexts['Time up – Turn Lost.'] || 'Time up – Turn Lost.' });
             setPendingMove(null);
             setSelected(null);
           }
@@ -141,6 +146,67 @@ export default function GamePage() {
     }
     return {};
   }, []);
+
+  // Load translated texts when language changes
+  useEffect(() => {
+    const loadTranslations = async () => {
+      if (!ctxLanguage || ctxLanguage === 'en') {
+        setTranslatedTexts({});
+        return;
+      }
+
+      const textsToTranslate = [
+        'Turn',
+        'Team',
+        'Your turn',
+        'Your Team',
+        'Local',
+        'Players',
+        'Field Legend',
+        'Question',
+        'Correct! Move applied.',
+        'Incorrect – Turn Lost.',
+        'Time up – Turn Lost.',
+        'Move rejected',
+        'Network error',
+        'Not your turn',
+        'You cannot move that piece',
+        'Game not yet created in lobby - please wait.',
+        'Move resolved.',
+        'Promotion: Level',
+        'Enemy piece destroyed',
+        'Enemy demoted to level',
+        'Game Over',
+        'wins',
+        'all pieces eliminated',
+        'game finished',
+        'Spectator Mode – you are not a registered player in this game (view only).',
+        'Creating game...',
+        'Retry Lobby',
+        'Play Locally',
+        'Create Lobby',
+        'Local mode: all players share this device. Lobby mode attempts persistence and remote opponent matching.',
+        'Local Players (2-4)',
+        'Player',
+        'Players',
+        'Connecting realtime...',
+        'Ephemeral game – progress won\'t persist.',
+        'Disconnected',
+        's',
+        'reconnected.',
+        'removed.',
+        'Player disconnected – 30s to return.'
+      ];
+
+      const translations: Record<string, string> = {};
+      for (const text of textsToTranslate) {
+        translations[text] = await t(text);
+      }
+      setTranslatedTexts(translations);
+    };
+
+    loadTranslations();
+  }, [ctxLanguage, t]);
 
   // Sync turnTeam with game.turnOfUserId whenever game changes
   useEffect(() => {
@@ -580,27 +646,27 @@ export default function GamePage() {
         {game && (
           <div className="flex flex-col items-center gap-1">
             <div className="text-sm text-slate-200 font-medium flex gap-3 items-center">
-              <span>Turn:
+              <span>{translatedTexts['Turn'] || 'Turn'}:
                 <span className={
                   'ml-1 px-2 py-0.5 rounded text-[12px] font-semibold ' +
                   (turnTeam === 'A' ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-400/40' :
                    turnTeam === 'B' ? 'bg-red-500/20 text-red-300 ring-1 ring-red-400/40' :
                    turnTeam === 'C' ? 'bg-green-500/20 text-green-300 ring-1 ring-green-400/40' :
                                      'bg-yellow-500/20 text-yellow-300 ring-1 ring-yellow-400/40')
-                }>{`Team ${turnTeam}`}</span>
+                }>{`${translatedTexts['Team'] || 'Team'} ${turnTeam}`}</span>
                 {game.turnOfUserId && currentUserId === game.turnOfUserId && !membershipDenied && (
-                  <span className="ml-2 text-xs text-emerald-400 font-medium">Your turn</span>
+                  <span className="ml-2 text-xs text-emerald-400 font-medium">{translatedTexts['Your turn'] || 'Your turn'}</span>
                 )}
               </span>
               {myTeam && (
-                <span>Your Team:
+                <span>{translatedTexts['Your Team'] || 'Your Team'}:
                   <span className={
                     'ml-1 px-2 py-0.5 rounded text-[12px] font-semibold ' +
                     (myTeam === 'A' ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-400/30' :
                      myTeam === 'B' ? 'bg-red-500/15 text-red-300 ring-1 ring-red-400/30' :
                      myTeam === 'C' ? 'bg-green-500/15 text-green-300 ring-1 ring-green-400/30' :
                                        'bg-yellow-500/15 text-yellow-300 ring-1 ring-yellow-400/30')
-                  }>{`Team ${myTeam}`}</span>
+                  }>{`${translatedTexts['Team'] || 'Team'} ${myTeam}`}</span>
                 </span>
               )}
               {localMode && <span className="text-xs text-slate-400">(Local)</span>}
@@ -625,9 +691,9 @@ export default function GamePage() {
           <div className="w-full max-w-md space-y-4 p-4 rounded bg-slate-800/60 border border-slate-700">
             <h2 className="text-lg font-semibold">Start a Game</h2>
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-300">Local Players (2-4)</label>
+              <label className="block text-sm font-medium text-slate-300">{translatedTexts['Local Players (2-4)'] || 'Local Players (2-4)'}</label>
               <input type="range" min={2} max={4} value={localPlayerCount} onChange={e=> setLocalPlayerCount(Number(e.target.value))} className="w-full" />
-              <div className="text-xs text-slate-400">{localPlayerCount} Player{localPlayerCount>1?'s':''}</div>
+              <div className="text-xs text-slate-400">{localPlayerCount} {(translatedTexts['Player'] || 'Player')}{localPlayerCount>1?'s':''}</div>
             </div>
             <div className="flex gap-3 flex-wrap">
               <button onClick={() => {
@@ -636,17 +702,17 @@ export default function GamePage() {
                 setPersisted(false);
                 setTurnTeam('A');
                 setLocalMode(true);
-              }} className="px-4 py-2 rounded bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400">Play Locally</button>
-              <button onClick={createGame} className="px-4 py-2 rounded bg-indigo-600 text-white text-sm font-medium shadow hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400">Create Lobby</button>
+              }} className="px-4 py-2 rounded bg-emerald-600 text-white text-sm font-medium shadow hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-400">{translatedTexts['Play Locally'] || 'Play Locally'}</button>
+              <button onClick={createGame} className="px-4 py-2 rounded bg-indigo-600 text-white text-sm font-medium shadow hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400">{translatedTexts['Create Lobby'] || 'Create Lobby'}</button>
             </div>
-            <p className="text-[11px] text-slate-500 leading-snug">Local mode: all players share this device. Lobby mode attempts persistence and remote opponent matching.</p>
+            <p className="text-[11px] text-slate-500 leading-snug">{translatedTexts['Local mode: all players share this device. Lobby mode attempts persistence and remote opponent matching.'] || 'Local mode: all players share this device. Lobby mode attempts persistence and remote opponent matching.'}</p>
           </div>
         )}
         {game && (
           <div className="flex flex-col items-center gap-4 w-full fade-in-up">
             <div className="hud-panel w-full max-w-3xl px-4 py-3 rounded-lg shadow relative overflow-hidden">
               <div className="panel-heading mb-2 flex items-center gap-2">
-                <span className="tracking-wider">Players</span>
+                <span className="tracking-wider">{translatedTexts['Players'] || 'Players'}</span>
                 <div className="h-px flex-1 bg-gradient-to-r from-sky-500/30 via-emerald-400/20 to-fuchsia-500/30" />
               </div>
               {playerInfo ? (
@@ -796,7 +862,7 @@ export default function GamePage() {
               </div>
               <div className="w-full md:w-[230px] lg:w-[240px] xl:w-[250px] flex flex-col gap-4 md:mt-0 mt-4 self-start">
                 <div className="hud-panel p-4 space-y-3 soft-scrollbars max-h-[calc(100vh-240px)] overflow-auto">
-                  <div className="hud-panel-heading">Field Legend</div>
+                  <div className="hud-panel-heading">{translatedTexts['Field Legend'] || 'Field Legend'}</div>
                   <div className="divider-gradient" />
                   <CategoryLegend vertical />
                 </div>
